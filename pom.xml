@@ -19,6 +19,7 @@
     <modules>
         <!-- Сюда добавляем микросервисы -->
         <module>inventory-service</module>
+        <module>discovery-server</module>
     </modules>
 
     <properties>
