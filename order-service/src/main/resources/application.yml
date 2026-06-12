@@ -4,7 +4,7 @@ spring:
   application:
     name: order-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/order_db
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/order_db
     username: user
     password: password
     driver-class-name: org.postgresql.Driver
@@ -16,7 +16,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_HOST:localhost}:9092
     template:
       default-topic: orderPlacedTopic
     producer:
@@ -25,4 +25,4 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka
