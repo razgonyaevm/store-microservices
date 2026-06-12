@@ -24,5 +24,8 @@ jobs:
       - name: Check Code Formatting
         run: mvn fmt:check
 
-      - name: Build with Maven
+      - name: Compile and Package All Modules
         run: mvn -B clean package -DskipTests
+
+      - name: Run Integration Tests
+        run: mvn -B test -pl inventory-service
