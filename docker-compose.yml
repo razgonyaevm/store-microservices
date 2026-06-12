@@ -57,6 +57,8 @@ services:
     container_name: discovery-server
     ports:
       - "8761:8761"
+    environment:
+      - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
 
   api_gateway:
     build: ./api-gateway
@@ -67,6 +69,8 @@ services:
       - discovery-server
     environment:
       - EUREKA_HOST=discovery-server
+      - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
+      - ZIPKIN_HOST=zipkin
 
   inventory-service:
     build: ./inventory-service
@@ -80,6 +84,8 @@ services:
       - DB_HOST=inventory-db
       - DB_PORT=5432
       - EUREKA_HOST=discovery-server
+      - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
+      - ZIPKIN_HOST=zipkin
 
   order-service:
     build: ./order-service
@@ -96,6 +102,8 @@ services:
       - EUREKA_HOST=discovery-server
       # Переопределяем адрес брокера через стандартную переменную Spring Boot
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
+      - ZIPKIN_HOST=zipkin
 
   notification-service:
     build: ./notification-service
@@ -108,6 +116,14 @@ services:
     environment:
       - EUREKA_HOST=discovery-server
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
+      - ZIPKIN_HOST=zipkin
+
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - "9411:9411"
 
 volumes:
   pgdata_inventory:
