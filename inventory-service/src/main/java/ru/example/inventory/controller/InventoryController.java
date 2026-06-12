@@ -4,6 +4,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import ru.example.inventory.dto.InventoryReduceRequest;
 import ru.example.inventory.dto.InventoryResponse;
 import ru.example.inventory.service.InventoryService;
 
@@ -20,5 +21,11 @@ public class InventoryController {
   @ResponseStatus(HttpStatus.OK)
   public List<InventoryResponse> isinStock(@RequestParam List<String> skuCode) {
     return inventoryService.isInStock(skuCode);
+  }
+
+  @PutMapping("/reduce")
+  @ResponseStatus(HttpStatus.OK)
+  public void reduceStock(@RequestBody List<InventoryReduceRequest> reduceRequests) {
+    inventoryService.reduceStock(reduceRequests);
   }
 }

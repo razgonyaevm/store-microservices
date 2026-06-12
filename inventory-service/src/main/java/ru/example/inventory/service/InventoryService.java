@@ -4,7 +4,9 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.example.inventory.dto.InventoryReduceRequest;
 import ru.example.inventory.dto.InventoryResponse;
+import ru.example.inventory.model.Inventory;
 import ru.example.inventory.repository.InventoryRepository;
 
 @Service
@@ -23,8 +25,28 @@ public class InventoryService {
                     .map(
                         inventory ->
                             new InventoryResponse(
-                                inventory.getSkuCode(), inventory.getQuantity() > 0))
-                    .orElseGet(() -> new InventoryResponse(skuCode, false)))
+                                inventory.getSkuCode(),
+                                inventory.getQuantity() > 0,
+                                inventory.getQuantity()))
+                    .orElseGet(() -> new InventoryResponse(skuCode, false, 0)))
         .toList();
+  }
+
+  @Transactional
+  public void reduceStock(List<InventoryReduceRequest> reduceRequests) {
+    for (InventoryReduceRequest request : reduceRequests) {
+      Inventory inventory =
+          inventoryRepository
+              .findBySkuCode(request.skuCode())
+              .orElseThrow(
+                  () -> new IllegalArgumentException("Product not found: " + request.skuCode()));
+
+      if (inventory.getQuantity() < request.quantity()) {
+        throw new IllegalArgumentException("Not enough stock for product: " + request.skuCode());
+      }
+
+      inventory.setQuantity(inventory.getQuantity() - request.quantity());
+      inventoryRepository.save(inventory);
+    }
   }
 }

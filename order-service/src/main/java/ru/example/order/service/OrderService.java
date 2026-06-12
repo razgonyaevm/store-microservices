@@ -7,6 +7,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.example.order.client.InventoryClient;
+import ru.example.order.dto.InventoryReduceRequest;
 import ru.example.order.dto.InventoryResponse;
 import ru.example.order.dto.OrderLineItemsDto;
 import ru.example.order.dto.OrderRequest;
@@ -47,6 +48,12 @@ public class OrderService {
             && inventoryResponseList.stream().allMatch(InventoryResponse::isInStock);
 
     if (allProductsInStock) {
+      List<InventoryReduceRequest> reduceRequests =
+          order.getOrderLineItemsList().stream()
+              .map(item -> new InventoryReduceRequest(item.getSkuCode(), item.getQuantity()))
+              .toList();
+      inventoryClient.reduceStock(reduceRequests);
+
       orderRepository.save(order);
 
       // Отправка события в Kafka
