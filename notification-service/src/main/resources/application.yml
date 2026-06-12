@@ -1,0 +1,23 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: notification-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*" # Разрешаем десериализацию любых пакетов для простоты
+        # 1. Говорим десериализатору не смотреть на заголовки типов отправителя
+        spring.json.use.type.headers: false
+        # 2. Указываем класс, в который нужно десериализовать сообщение по умолчанию
+        spring.json.value.default.type: "ru.example.notification.event.OrderPlacedEvent"
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
