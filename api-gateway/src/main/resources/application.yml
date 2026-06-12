@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Маршрут для inventory-service
+        - id: inventory-service
+          # lb:// - Load Balancer. Шлюз запросит у Eureka адрес сервиса с именем inventory-service
+          uri: lb://inventory-service
+          # Все запросы, начинающиеся с /api/inventory/, будут перенаправлены туда
+          predicates:
+            - Path=/api/inventory/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
