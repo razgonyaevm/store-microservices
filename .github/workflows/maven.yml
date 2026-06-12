@@ -82,5 +82,8 @@ jobs:
           docker build -t $REGISTRY/notification-service:latest ./notification-service
           docker push $REGISTRY/notification-service:latest
           
+          docker build -t $REGISTRY/user-service:latest ./user-service
+          docker push $REGISTRY/user-service:latest
+          
           docker build -t $REGISTRY/frontend-vue:latest ./frontend-vue
           docker push $REGISTRY/frontend-vue:latest

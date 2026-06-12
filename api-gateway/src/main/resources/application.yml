@@ -9,7 +9,9 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowed-origins: "http://localhost:5173" # Порт Vue приложения
+            allowed-origins:
+              - "http://localhost:5173" # Для локальной разработки Vue
+              - "http://localhost:3000" # Для работы Vue внутри Docker
             allowed-methods:
               - GET
               - POST
@@ -30,6 +32,14 @@ spring:
           uri: lb://order-service
           predicates:
             - Path=/api/order/**
+          filters:
+            - AuthenticationFilter
+
+        # Маршрут для пользователей
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/**
 
 eureka:
   client:
@@ -43,3 +53,7 @@ management:
   zipkin:
     tracing:
       endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}

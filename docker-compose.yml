@@ -27,6 +27,18 @@ services:
     volumes:
       - pgdata_order:/var/lib/postgresql/data
 
+  user-db:
+    image: postgres:15-alpine
+    container_name: user-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: user_db
+    volumes:
+      - pgdata_user:/var/lib/postgresql/data
+
   # Zookeeper необходим для работы Kafka в текущей стандартной конфигурации
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.0
@@ -60,7 +72,7 @@ services:
     environment:
       - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
 
-  api_gateway:
+  api-gateway:
     build: ./api-gateway
     container_name: api-gateway
     ports:
@@ -71,6 +83,7 @@ services:
       - EUREKA_HOST=discovery-server
       - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
       - ZIPKIN_HOST=zipkin
+      - JWT_SECRET=${JWT_SECRET}
 
   inventory-service:
     build: ./inventory-service
@@ -125,7 +138,31 @@ services:
     ports:
       - "9411:9411"
 
+  frontend-vue:
+    build: ./frontend-vue
+    container_name: frontend-vue
+    ports:
+      - "3000:80" # Маппим внешний порт 3000 на внутренний порт Nginx 80
+    depends_on:
+      - api-gateway
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - user-db
+      - discovery-server
+    environment:
+      - DB_HOST=user-db
+      - DB_PORT=5432
+      - EUREKA_HOST=discovery-server
+      - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
+      - JWT_SECRET=${JWT_SECRET}
+
 volumes:
   pgdata_inventory:
   pgdata_order:
+  pgdata_user:
 

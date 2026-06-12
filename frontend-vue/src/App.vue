@@ -4,6 +4,17 @@ import axios from "axios";
 
 const API_BASE_URL = 'http://localhost:8080/api'
 
+// Данные пользователя и авторизация
+const currentUser = ref(localStorage.getItem('username') || null)
+const token = ref(localStorage.getItem('token') || null)
+
+// Состояние форм авторизации
+const authMode = ref('login')
+const usernameInput = ref('')
+const passwordInput = ref('')
+const emailInput = ref('')
+const authLoading = ref(false)
+
 // Список товаров (данные храним на фронт, остатки проверяем на бэке)
 const products = ref([
   {
@@ -55,8 +66,71 @@ const checkStockStatus = async () => {
     })
   } catch (error) {
     console.error('Failed to fetch stock status:', error)
-    showToast('Failed to connect to Inventory Service', 'error')
   }
+}
+
+// Регистрация
+const handleRegister = async () => {
+  if (!usernameInput.value || !passwordInput.value) {
+    showToast('Please fill in username and password', 'error')
+    return
+  }
+  authLoading.value = true
+  try {
+    const response = await axios.post(`${API_BASE_URL}/user/register`, {
+      username: usernameInput.value,
+      password: passwordInput.value,
+      email: emailInput.value
+    })
+    showToast(response.data, 'success')
+    authMode.value = 'login'
+    passwordInput.value = ''
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Registration failed', 'error')
+  } finally {
+    authLoading.value = false
+  }
+}
+
+// Авторизация
+const handleLogin = async () => {
+  if (!usernameInput.value || !passwordInput.value) {
+    showToast('Please fill in all fields', 'error')
+    return
+  }
+  authLoading.value = true
+  try {
+    const response = await axios.post(`${API_BASE_URL}/user/login`,
+        {
+          username: usernameInput.value,
+          password: passwordInput.value
+        })
+
+    // Сохраняем токен в localStorage
+    token.value = response.data.token
+    currentUser.value = usernameInput.value
+    localStorage.setItem('token', response.data.token)
+    localStorage.setItem('username', usernameInput.value)
+
+    showToast('Successfully logged in!', 'success')
+
+    // Очистка полей ввода
+    usernameInput.value = ''
+    passwordInput.value = ''
+  } catch (error) {
+    showToast('Invalid username or password', error)
+  } finally {
+    authLoading.value = false
+  }
+}
+
+// Выход из аккаунта
+const handleLogout = () => {
+  token.value = null
+  currentUser.value = null
+  localStorage.removeItem('token')
+  localStorage.removeItem('username')
+  showToast('Logged out successfully', 'success')
 }
 
 // Метод оформления заказа через Gateway -> Order Service
@@ -73,8 +147,11 @@ const buyProduct = async (product) => {
       ]
     }
 
+    // Передаем JWT-токен в заголовке Authorization, если он есть
+    const headers = token.value ? {Authorization: `Bearer ${token.value}`} : {}
+
     // Делаем POST запрос на создание заказа
-    const response = await axios.post(`${API_BASE_URL}/order`, orderPayload)
+    const response = await axios.post(`${API_BASE_URL}/order`, orderPayload, {headers})
 
     showToast(response.data, 'success')
 
@@ -82,7 +159,19 @@ const buyProduct = async (product) => {
     await checkStockStatus()
   } catch (error) {
     console.error('Order creation failed:', error)
-    const errorMsg = error.response?.data?.message || 'Product is not in stock!'
+
+    let errorMsg = 'An unexpected error occurred'
+
+    if (error.response) {
+      if (error.response.status === 401) {
+        errorMsg = 'Unauthorized: Please log in to make a purchase!'
+      } else if (error.response.status === 400 || error.response.status === 500) {
+        errorMsg = error.response.data?.message || error.response.data || 'Product is not in stock!'
+      }
+    } else {
+      errorMsg = 'No response from server. Check your gateway'
+    }
+
     showToast(errorMsg, 'error')
   } finally {
     product.loading = false
@@ -109,9 +198,41 @@ onMounted(() => {
 
 <template>
   <div class="app-container">
+    <!-- Навигационная панель / Личный кабинет -->
+    <div class="auth-bar">
+      <div v-if="currentUser" class="user-profile">
+        <span>👤 Welcome, <strong>{{ currentUser }}</strong></span>
+        <button @click="handleLogout" class="logout-button">Logout</button>
+      </div>
+      <div v-else class="auth-forms">
+        <div class="auth-toggle">
+          <button
+              @click="authMode = 'login'"
+              :class="{ active: authMode === 'login' }"
+          >Login
+          </button>
+          <button
+              @click="authMode = 'register'"
+              :class="{ active: authMode === 'register' }"
+          >Register
+          </button>
+        </div>
+
+        <form @submit.prevent="authMode === 'login' ? handleLogin() : handleRegister()" class="inline-form">
+          <input v-model="usernameInput" type="text" placeholder="Username" required />
+          <input v-model="passwordInput" type="password" placeholder="Password" required />
+          <input v-if="authMode === 'register'" v-model="emailInput" type="email" placeholder="Email" />
+
+          <button type="submit" :disabled="authLoading" class="auth-submit">
+            {{ authLoading ? '...' : (authMode === 'login' ? 'Sign In' : 'Sign Up') }}
+          </button>
+        </form>
+      </div>
+    </div>
+
     <header class="header">
       <h1>⚡ Microservice Tech Store</h1>
-      <p class="subtitle">Full-Stack Demo Application (Spring Boot + Vue 3)</p>
+      <p class="subtitle">Full-Stack Demo Application with JWT Security & Service Discovery</p>
     </header>
 
     <main class="main-content">
@@ -154,34 +275,111 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Базовые стили */
 .app-container {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', sans-serif;
   color: #2c3e50;
   background-color: #f8f9fa;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem;
+  padding: 1rem 2rem 2rem 2rem;
   box-sizing: border-box;
 }
 
+/* Личный кабинет (Auth Bar) */
+.auth-bar {
+  width: 100%;
+  max-width: 800px;
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-profile {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+}
+
+.logout-button {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.auth-forms {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.auth-toggle {
+  display: flex;
+  background: #f1f2f6;
+  border-radius: 8px;
+  padding: 0.2rem;
+}
+
+.auth-toggle button {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #7f8c8d;
+}
+
+.auth-toggle button.active {
+  background: white;
+  color: #2c3e50;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-grow: 1;
+}
+
+.inline-form input {
+  padding: 0.5rem;
+  border: 1px solid #dcdde1;
+  border-radius: 6px;
+  outline: none;
+  flex-grow: 1;
+}
+
+.auth-submit {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Стилизация заголовка */
 .header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
-
-.header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  color: #1a252f;
-}
-
-.subtitle {
-  color: #7f8c8d;
-  font-size: 1.1rem;
-}
+.header h1 { font-size: 2.2rem; margin-bottom: 0.5rem; color: #1a252f; }
+.subtitle { color: #7f8c8d; font-size: 1rem; }
 
 /* Сетка товаров */
 .product-grid {
@@ -196,70 +394,29 @@ onMounted(() => {
   background: white;
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
   display: flex;
   flex-direction: column;
   align-items: center;
   transition: transform 0.2s, box-shadow 0.2s;
-  position: relative;
   border: 1px solid #eef2f3;
 }
 
 .product-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.08);
 }
 
-.product-emoji {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
+.product-emoji { font-size: 3.5rem; margin-bottom: 0.5rem; }
+.product-name { font-size: 1.4rem; margin: 0.5rem 0; color: #2c3e50; }
+.product-sku { font-size: 0.85rem; color: #95a5a6; margin-bottom: 1rem; }
+.product-sku code { background: #f1f2f6; padding: 0.2rem 0.5rem; border-radius: 4px; }
+.product-price { font-size: 1.6rem; font-weight: bold; color: #2e7d32; margin-bottom: 1rem; }
 
-.product-name {
-  font-size: 1.5rem;
-  margin: 0.5rem 0;
-  color: #2c3e50;
-}
+.stock-badge { font-size: 0.85rem; font-weight: 600; padding: 0.4rem 1rem; border-radius: 50px; margin-bottom: 1.5rem; }
+.stock-badge.in-stock { background-color: #e8f5e9; color: #2e7d32; }
+.stock-badge.no-stock { background-color: #ffebee; color: #c62828; }
 
-.product-sku {
-  font-size: 0.9rem;
-  color: #95a5a6;
-  margin-bottom: 1rem;
-}
-
-.product-sku code {
-  background: #f1f2f6;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-}
-
-.product-price {
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: #2e7d32;
-  margin-bottom: 1rem;
-}
-
-/* Статусы склада */
-.stock-badge {
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 0.4rem 1rem;
-  border-radius: 50px;
-  margin-bottom: 1.5rem;
-}
-
-.stock-badge.in-stock {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-}
-
-.stock-badge.no-stock {
-  background-color: #ffebee;
-  color: #c62828;
-}
-
-/* Кнопка покупки */
 .buy-button {
   width: 100%;
   padding: 0.8rem;
@@ -267,39 +424,27 @@ onMounted(() => {
   border-radius: 8px;
   background-color: #1565c0;
   color: white;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.2s;
 }
+.buy-button:hover:not(:disabled) { background-color: #0d47a1; }
+.buy-button:disabled { background-color: #b0bec5; cursor: not-allowed; }
 
-.buy-button:hover:not(:disabled) {
-  background-color: #0d47a1;
-}
-
-.buy-button:disabled {
-  background-color: #b0bec5;
-  cursor: not-allowed;
-}
-
-/* Анимация загрузки (Spinner) */
 .spinner {
   display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255, 255, 255, .3);
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,.3);
   border-radius: 50%;
   border-top-color: #fff;
   animation: spin 1s ease-in-out infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Всплывающее уведомление (Toast) */
+/* Уведомление */
 .toast {
   position: fixed;
   bottom: 2rem;
@@ -308,42 +453,16 @@ onMounted(() => {
   align-items: center;
   padding: 1rem 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
   background: white;
   z-index: 1000;
-  max-width: 400px;
 }
+.toast.success { border-left: 6px solid #2e7d32; }
+.toast.error { border-left: 6px solid #c62828; }
+.toast-icon { font-size: 1.3rem; margin-right: 0.8rem; }
+.toast-message { margin: 0; font-weight: 500; }
 
-.toast.success {
-  border-left: 6px solid #2e7d32;
-}
-
-.toast.error {
-  border-left: 6px solid #c62828;
-}
-
-.toast-icon {
-  font-size: 1.5rem;
-  margin-right: 1rem;
-}
-
-.toast-message {
-  margin: 0;
-  font-weight: 500;
-}
-
-/* Анимация для Toast */
-.slide-fade-enter-active {
-  transition: all 0.3s ease-out;
-}
-
-.slide-fade-leave-active {
-  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
-}
-
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  transform: translateX(20px);
-  opacity: 0;
-}
+.slide-fade-enter-active { transition: all 0.3s ease-out; }
+.slide-fade-leave-active { transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1); }
+.slide-fade-enter-from, .slide-fade-leave-to { transform: translateX(20px); opacity: 0; }
 </style>
