@@ -47,16 +47,16 @@
 
 ## Технологический стек
 
-| Направление                    | Технологии                                                                                             |
-|:-------------------------------|:-------------------------------------------------------------------------------------------------------|
-| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)      |
-| **Фронтенд**                   | Vue 3 (Composition API), Vite, Axios, HTML5/CSS3 (Grid, Flexbox, Scoped CSS)                           |
-| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование                                           |
-| **Базы данных**                | PostgreSQL 15, Redis 7 (In-Memory кэш), Схема "Database per Service"                                   |
-| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                          |
-| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                     |
-| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                           |
-| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry)    |
+| Направление                    | Технологии                                                                                          |
+|:-------------------------------|:----------------------------------------------------------------------------------------------------|
+| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)   |
+| **Фронтенд**                   | Vue 3 (Composition API), Vite, Axios, HTML5/CSS3 (Grid, Flexbox, Scoped CSS)                        |
+| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование                                        |
+| **Базы данных**                | PostgreSQL 15, Redis 7 (In-Memory кэш), Схема "Database per Service"                                |
+| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                       |
+| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                  |
+| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                        |
+| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry) |
 
 ---
 
@@ -129,6 +129,12 @@
    ```text
    JWT_SECRET=<...>
    ```
+   Можно воспользоваться скриптом для генерации ключа
+
+    ```bash
+    echo "JWT_SECRET=$(openssl rand -hex 32)" > .env
+    ```
+
 4. Запустите всю систему:
    ```bash
    docker-compose up --build -d
