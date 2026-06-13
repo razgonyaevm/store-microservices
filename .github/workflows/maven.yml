@@ -85,5 +85,8 @@ jobs:
           docker build -t $REGISTRY/user-service:latest ./user-service
           docker push $REGISTRY/user-service:latest
           
+          docker build -t $REGISTRY/cart-service:latest ./cart-service
+          docker push $REGISTRY/cart-service:latest
+          
           docker build -t $REGISTRY/frontend-vue:latest ./frontend-vue
           docker push $REGISTRY/frontend-vue:latest

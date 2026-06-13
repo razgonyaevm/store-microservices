@@ -1,5 +1,8 @@
 package ru.example.gateway.config;
 
+import io.jsonwebtoken.Jwts;
+import java.util.HexFormat;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +16,9 @@ public class AuthenticationFilter
     extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 
   private final JwtUtil jwtUtil;
+
+  @Value("${app.jwt.secret}")
+  private String secret;
 
   public AuthenticationFilter(JwtUtil jwtUtil) {
     super(Config.class);
@@ -43,12 +49,25 @@ public class AuthenticationFilter
       try {
         // Валидируем токен
         jwtUtil.validateToken(token);
+
+        // Расшифровываем имя пользователя из токена
+        String username =
+            Jwts.parserBuilder()
+                .setSigningKey(HexFormat.of().parseHex(secret))
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
+
+        // Пробрасываем имя пользователя в заголовке X-User-Name
+        ServerHttpRequest modifiedRequest =
+            exchange.getRequest().mutate().header("X-User-Name", username).build();
+
+        return chain.filter(exchange.mutate().request(modifiedRequest).build());
       } catch (Exception e) {
         throw new ResponseStatusException(
             HttpStatus.UNAUTHORIZED, "Unauthorized access: " + e.getMessage());
       }
-
-      return chain.filter(exchange);
     };
   }
 }

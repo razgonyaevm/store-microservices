@@ -41,6 +41,14 @@ spring:
           predicates:
             - Path=/api/user/**
 
+        # Маршрут корзины
+        - id: cart-service
+          uri: lb://cart-service
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - AuthenticationFilter
+
 eureka:
   client:
     service-url:

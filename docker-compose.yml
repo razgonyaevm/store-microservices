@@ -138,6 +138,12 @@ services:
     ports:
       - "9411:9411"
 
+  cart-redis:
+    image: redis:7-alpine
+    container_name: cart-redis
+    ports:
+      - "6379:6379"
+
   frontend-vue:
     build: ./frontend-vue
     container_name: frontend-vue
@@ -160,6 +166,19 @@ services:
       - EUREKA_HOST=discovery-server
       - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
       - JWT_SECRET=${JWT_SECRET}
+
+  cart-service:
+    build: ./cart-service
+    container_name: cart-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - cart-redis
+      - discovery-server
+    environment:
+      - REDIS_HOST=cart-redis
+      - EUREKA_HOST=discovery-server
+      - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
 
 volumes:
   pgdata_inventory:

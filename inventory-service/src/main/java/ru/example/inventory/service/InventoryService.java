@@ -49,4 +49,20 @@ public class InventoryService {
       inventoryRepository.save(inventory);
     }
   }
+
+  // Метод возврата товара на склад при очистке корзины
+  @Transactional
+  public void increaseStock(List<InventoryReduceRequest> increaseRequests) {
+    for (InventoryReduceRequest request : increaseRequests) {
+      Inventory inventory =
+          inventoryRepository
+              .findBySkuCode(request.skuCode())
+              .orElseThrow(
+                  () -> new IllegalArgumentException("Product not found: " + request.skuCode()));
+
+      // Увеличиваем количество товара
+      inventory.setQuantity(inventory.getQuantity() + request.quantity());
+      inventoryRepository.save(inventory);
+    }
+  }
 }

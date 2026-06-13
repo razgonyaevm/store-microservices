@@ -28,4 +28,10 @@ public class InventoryController {
   public void reduceStock(@RequestBody List<InventoryReduceRequest> reduceRequests) {
     inventoryService.reduceStock(reduceRequests);
   }
+
+  @PutMapping("/increase")
+  @ResponseStatus(HttpStatus.OK)
+  public void increaseStock(@RequestBody List<InventoryReduceRequest> increaseRequests) {
+    inventoryService.increaseStock(increaseRequests);
+  }
 }

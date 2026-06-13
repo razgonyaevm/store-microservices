@@ -8,6 +8,10 @@ const API_BASE_URL = 'http://localhost:8080/api'
 const currentUser = ref(localStorage.getItem('username') || null)
 const token = ref(localStorage.getItem('token') || null)
 
+// Состояние корзины
+const cart = ref({items: []})
+const cartLoading = ref(false)
+
 // Состояние форм авторизации
 const authMode = ref('login')
 const usernameInput = ref('')
@@ -69,6 +73,18 @@ const checkStockStatus = async () => {
   }
 }
 
+// Загрузка корзины пользователя из Redis
+const fetchCart = async () => {
+  if (!token.value) return
+  try {
+    const headers = {Authorization: `Bearer ${token.value}`}
+    const response = await axios.get(`${API_BASE_URL}/cart`, {headers})
+    cart.value = response.data
+  } catch (error) {
+    console.error('Failed to fetch cart:', error)
+  }
+}
+
 // Регистрация
 const handleRegister = async () => {
   if (!usernameInput.value || !passwordInput.value) {
@@ -114,6 +130,9 @@ const handleLogin = async () => {
 
     showToast('Successfully logged in!', 'success')
 
+    // Загружаем корзину вошедшего пользователя
+    await fetchCart()
+
     // Очистка полей ввода
     usernameInput.value = ''
     passwordInput.value = ''
@@ -128,54 +147,89 @@ const handleLogin = async () => {
 const handleLogout = () => {
   token.value = null
   currentUser.value = null
+  cart.value = {items: []}
   localStorage.removeItem('token')
   localStorage.removeItem('username')
   showToast('Logged out successfully', 'success')
 }
 
-// Метод оформления заказа через Gateway -> Order Service
-const buyProduct = async (product) => {
+// Добавление в корзину с резервированием товара на складе
+const addToCart = async (product) => {
+  if (!token.value) {
+    showToast('Please log in to add items to cart!', 'error')
+    return
+  }
+
   product.loading = true
   try {
-    const orderPayload = {
-      orderLineItemsList: [
-        {
-          skuCode: product.skuCode,
-          price: product.price,
-          quantity: 1
-        }
-      ]
-    }
+    const headers = {Authorization: `Bearer ${token.value}`}
 
-    // Передаем JWT-токен в заголовке Authorization, если он есть
-    const headers = token.value ? {Authorization: `Bearer ${token.value}`} : {}
+    // Делаем запрос к cart-service через POST /api/cart/add?skuCode=...&price=...
+    const response = await axios.post(`${API_BASE_URL}/cart/add`, null, {
+      params: {
+        skuCode: product.skuCode,
+        price: product.price
+      },
+      headers
+    })
 
-    // Делаем POST запрос на создание заказа
-    const response = await axios.post(`${API_BASE_URL}/order`, orderPayload, {headers})
+    cart.value = response.data
+    showToast(`Added ${product.name} to cart (Reserved!)`, 'success')
 
-    showToast(response.data, 'success')
-
-    // После успешного заказа обновляем остатки на складе
+    // Обновляем остатки на складе (уменьшаем на 1)
     await checkStockStatus()
   } catch (error) {
-    console.error('Order creation failed:', error)
-
-    let errorMsg = 'An unexpected error occurred'
-
-    if (error.response) {
-      if (error.response.status === 401) {
-        errorMsg = 'Unauthorized: Please log in to make a purchase!'
-      } else if (error.response.status === 400 || error.response.status === 500) {
-        errorMsg = error.response.data?.message || error.response.data || 'Product is not in stock!'
-      }
-    } else {
-      errorMsg = 'No response from server. Check your gateway'
-    }
-
+    console.error('Failed to add to cart:', error)
+    const errorMsg = error.response?.data?.message || 'Product is not in stock!'
     showToast(errorMsg, 'error')
   } finally {
     product.loading = false
   }
+}
+
+// Очистка корзины с возвратом товаров на склад
+const clearCart = async () => {
+  if (!token.value || cart.value.items.length === 0) return
+  cartLoading.value = true
+  try {
+    const headers = {Authorization: `Bearer ${token.value}`}
+    await axios.post(`${API_BASE_URL}/cart/clear`, null, {headers})
+
+    cart.value = {items: []}
+    showToast('Cart cleared. Items returned to shelves!', 'success')
+
+    // Обновляем остатки на складе
+    await checkStockStatus()
+  } catch (error) {
+    showToast('Failed to clear cart', 'error')
+  } finally {
+    cartLoading.value = false
+  }
+}
+
+// Оформление заказа
+const checkoutCart = async () => {
+  if (!token.value || cart.value.items.length === 0) return
+  cartLoading.value = true
+
+  try {
+    const headers = {Authorization: `Bearer ${token.value}`}
+    const response = await axios.post(`${API_BASE_URL}/cart/checkout`, null, {headers})
+
+    showToast(response.data, 'success')
+    cart.value = {items: []}
+
+    await checkStockStatus()
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Checkout failed', 'error')
+  } finally {
+    cartLoading.value = false
+  }
+}
+
+// Подсчет общей стоимости корзины
+const getCartTotal = () => {
+  return cart.value.items.reduce((total, item) => total + (item.price * item.quantity), 0)
 }
 
 // Функция показа уведомления
@@ -193,6 +247,9 @@ const showToast = (message, type) => {
 // Вызываем проверку остатков при загрузке страницы
 onMounted(() => {
   checkStockStatus()
+  if (token.value) {
+    fetchCart()
+  }
 })
 </script>
 
@@ -219,9 +276,9 @@ onMounted(() => {
         </div>
 
         <form @submit.prevent="authMode === 'login' ? handleLogin() : handleRegister()" class="inline-form">
-          <input v-model="usernameInput" type="text" placeholder="Username" required />
-          <input v-model="passwordInput" type="password" placeholder="Password" required />
-          <input v-if="authMode === 'register'" v-model="emailInput" type="email" placeholder="Email" />
+          <input v-model="usernameInput" type="text" placeholder="Username" required/>
+          <input v-model="passwordInput" type="password" placeholder="Password" required/>
+          <input v-if="authMode === 'register'" v-model="emailInput" type="email" placeholder="Email"/>
 
           <button type="submit" :disabled="authLoading" class="auth-submit">
             {{ authLoading ? '...' : (authMode === 'login' ? 'Sign In' : 'Sign Up') }}
@@ -230,9 +287,49 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- Корзина товаров (показывается только после авторизации) -->
+    <div v-if="currentUser" class="cart-panel">
+      <h2>🛒 Shopping Cart (Redis Cache)</h2>
+      <div v-if="cart.items.length === 0" class="empty-cart">
+        Your cart is empty. Reserve some products!
+      </div>
+      <div v-else class="cart-content">
+        <table class="cart-table">
+          <thead>
+          <tr>
+            <th>Product SKU</th>
+            <th>Price</th>
+            <th>Qty</th>
+            <th>Subtotal</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr v-for="item in cart.items" :key="item.skuCode">
+            <td><code>{{ item.skuCode }}</code></td>
+            <td>${{ item.price }}</td>
+            <td><strong>{{ item.quantity }}</strong></td>
+            <td>${{ item.price * item.quantity }}</td>
+          </tr>
+          </tbody>
+        </table>
+
+        <div class="cart-footer">
+          <div class="cart-total">Total: <strong>${{ getCartTotal() }}</strong></div>
+          <div class="cart-actions">
+            <button @click="clearCart" :disabled="cartLoading" class="clear-button">
+              Clear & Return to Shelf
+            </button>
+            <button @click="checkoutCart" :disabled="cartLoading" class="checkout-button">
+              Checkout & Place Order
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <header class="header">
       <h1>⚡ Microservice Tech Store</h1>
-      <p class="subtitle">Full-Stack Demo Application with JWT Security & Service Discovery</p>
+      <p class="subtitle">Distributed Event-Driven Platform with In-Memory Redis Cart & OpenFeign</p>
     </header>
 
     <main class="main-content">
@@ -253,12 +350,12 @@ onMounted(() => {
           </div>
 
           <button
-              @click="buyProduct(product)"
+              @click="addToCart(product)"
               :disabled="!product.inStock || product.loading"
               class="buy-button"
           >
             <span v-if="product.loading" class="spinner"></span>
-            <span v-else>Buy Now</span>
+            <span v-else>Add to Cart</span>
           </button>
         </div>
       </div>
@@ -287,15 +384,15 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-/* Личный кабинет (Auth Bar) */
+/* Auth Bar */
 .auth-bar {
   width: 100%;
   max-width: 800px;
   background: white;
   padding: 1rem 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+  margin-bottom: 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -346,7 +443,7 @@ onMounted(() => {
 .auth-toggle button.active {
   background: white;
   color: #2c3e50;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .inline-form {
@@ -373,13 +470,136 @@ onMounted(() => {
   font-weight: 600;
 }
 
+/* Панель корзины */
+.cart-panel {
+  width: 100%;
+  max-width: 800px;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+  margin-bottom: 2rem;
+  border: 1px solid #eef2f3;
+}
+
+.cart-panel h2 {
+  font-size: 1.3rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.empty-cart {
+  color: #7f8c8d;
+  text-align: center;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px dashed #dcdde1;
+}
+
+.cart-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.cart-table th {
+  padding: 0.8rem;
+  border-bottom: 2px solid #f1f2f6;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+.cart-table td {
+  padding: 0.8rem;
+  border-bottom: 1px solid #f1f2f6;
+}
+
+.cart-table code {
+  background: #f1f2f6;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.cart-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.cart-total {
+  font-size: 1.2rem;
+  color: #2c3e50;
+}
+
+.cart-total strong {
+  color: #2e7d32;
+  font-size: 1.5rem;
+}
+
+.cart-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.clear-button {
+  background: #7f8c8d;
+  color: white;
+  border: none;
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.clear-button:hover {
+  background: #636e72;
+}
+
+.checkout-button {
+  background: #2e7d32;
+  color: white;
+  border: none;
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.checkout-button:hover {
+  background: #1b5e20;
+}
+
+.cart-actions button:disabled {
+  background: #b0bec5;
+  cursor: not-allowed;
+}
+
 /* Стилизация заголовка */
 .header {
   text-align: center;
   margin-bottom: 2rem;
 }
-.header h1 { font-size: 2.2rem; margin-bottom: 0.5rem; color: #1a252f; }
-.subtitle { color: #7f8c8d; font-size: 1rem; }
+
+.header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #1a252f;
+}
+
+.subtitle {
+  color: #7f8c8d;
+  font-size: 0.95rem;
+}
 
 /* Сетка товаров */
 .product-grid {
@@ -394,7 +614,7 @@ onMounted(() => {
   background: white;
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -404,18 +624,56 @@ onMounted(() => {
 
 .product-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.06);
 }
 
-.product-emoji { font-size: 3.5rem; margin-bottom: 0.5rem; }
-.product-name { font-size: 1.4rem; margin: 0.5rem 0; color: #2c3e50; }
-.product-sku { font-size: 0.85rem; color: #95a5a6; margin-bottom: 1rem; }
-.product-sku code { background: #f1f2f6; padding: 0.2rem 0.5rem; border-radius: 4px; }
-.product-price { font-size: 1.6rem; font-weight: bold; color: #2e7d32; margin-bottom: 1rem; }
+.product-emoji {
+  font-size: 3.5rem;
+  margin-bottom: 0.5rem;
+}
 
-.stock-badge { font-size: 0.85rem; font-weight: 600; padding: 0.4rem 1rem; border-radius: 50px; margin-bottom: 1.5rem; }
-.stock-badge.in-stock { background-color: #e8f5e9; color: #2e7d32; }
-.stock-badge.no-stock { background-color: #ffebee; color: #c62828; }
+.product-name {
+  font-size: 1.4rem;
+  margin: 0.5rem 0;
+  color: #2c3e50;
+}
+
+.product-sku {
+  font-size: 0.85rem;
+  color: #95a5a6;
+  margin-bottom: 1rem;
+}
+
+.product-sku code {
+  background: #f1f2f6;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.product-price {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #2e7d32;
+  margin-bottom: 1rem;
+}
+
+.stock-badge {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  border-radius: 50px;
+  margin-bottom: 1.5rem;
+}
+
+.stock-badge.in-stock {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.stock-badge.no-stock {
+  background-color: #ffebee;
+  color: #c62828;
+}
 
 .buy-button {
   width: 100%;
@@ -429,20 +687,31 @@ onMounted(() => {
   cursor: pointer;
   transition: background-color 0.2s;
 }
-.buy-button:hover:not(:disabled) { background-color: #0d47a1; }
-.buy-button:disabled { background-color: #b0bec5; cursor: not-allowed; }
+
+.buy-button:hover:not(:disabled) {
+  background-color: #0d47a1;
+}
+
+.buy-button:disabled {
+  background-color: #b0bec5;
+  cursor: not-allowed;
+}
 
 .spinner {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255,255,255,.3);
+  border: 2px solid rgba(255, 255, 255, .3);
   border-radius: 50%;
   border-top-color: #fff;
   animation: spin 1s ease-in-out infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Уведомление */
 .toast {
@@ -453,16 +722,39 @@ onMounted(() => {
   align-items: center;
   padding: 1rem 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   background: white;
   z-index: 1000;
 }
-.toast.success { border-left: 6px solid #2e7d32; }
-.toast.error { border-left: 6px solid #c62828; }
-.toast-icon { font-size: 1.3rem; margin-right: 0.8rem; }
-.toast-message { margin: 0; font-weight: 500; }
 
-.slide-fade-enter-active { transition: all 0.3s ease-out; }
-.slide-fade-leave-active { transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1); }
-.slide-fade-enter-from, .slide-fade-leave-to { transform: translateX(20px); opacity: 0; }
+.toast.success {
+  border-left: 6px solid #2e7d32;
+}
+
+.toast.error {
+  border-left: 6px solid #c62828;
+}
+
+.toast-icon {
+  font-size: 1.3rem;
+  margin-right: 0.8rem;
+}
+
+.toast-message {
+  margin: 0;
+  font-weight: 500;
+}
+
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from, .slide-fade-leave-to {
+  transform: translateX(20px);
+  opacity: 0;
+}
 </style>
