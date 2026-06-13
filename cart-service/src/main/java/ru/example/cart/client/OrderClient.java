@@ -11,5 +11,7 @@ public interface OrderClient {
 
   @PostMapping("/api/order")
   String placeOrder(
-      @RequestBody OrderRequest orderRequest, @RequestHeader("Authorization") String token);
+      @RequestBody OrderRequest orderRequest,
+      @RequestHeader("X-User-Name") String username,
+      @RequestHeader("Authorization") String token);
 }

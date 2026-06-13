@@ -1,9 +1,11 @@
 package ru.example.user.service;
 
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import ru.example.user.dto.AuthRequest;
 import ru.example.user.dto.RegisterRequest;
@@ -40,10 +42,52 @@ public class UserService {
             .password(passwordEncoder.encode(registerRequest.password()))
             .email(registerRequest.email())
             .role(userRole)
+            .balance(
+                BigDecimal.valueOf(
+                    1000)) // Дарим пользователю 1000 приветственных баксов для тестов
             .build();
 
     userRepository.save(user);
-    return "User registered successfully";
+    return "User registered successfully with role " + userRole.name();
+  }
+
+  public BigDecimal getBalance(String username) {
+    User user =
+        userRepository
+            .findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+    return user.getBalance();
+  }
+
+  @Transactional
+  public BigDecimal rechargeBalance(String username, BigDecimal amount) {
+    if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+      throw new IllegalArgumentException("Amount must be greater than zero");
+    }
+    User user =
+        userRepository
+            .findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+
+    user.setBalance(user.getBalance().add(amount));
+    userRepository.save(user);
+    return user.getBalance();
+  }
+
+  @Transactional
+  public void deductBalance(String username, BigDecimal amount) {
+    User user =
+        userRepository
+            .findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+
+    if (user.getBalance().compareTo(amount) < 0) {
+      throw new IllegalArgumentException(
+          "Insufficient funds! You have $" + user.getBalance() + " but order costs $" + amount);
+    }
+
+    user.setBalance(user.getBalance().subtract(amount));
+    userRepository.save(user);
   }
 
   public String login(AuthRequest authRequest) {

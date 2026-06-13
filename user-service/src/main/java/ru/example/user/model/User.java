@@ -1,6 +1,7 @@
 package ru.example.user.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import lombok.*;
 
 @Entity
@@ -26,4 +27,7 @@ public class User {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private Role role;
+
+  @Column(nullable = false)
+  private BigDecimal balance;
 }

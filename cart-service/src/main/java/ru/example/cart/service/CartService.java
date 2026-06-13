@@ -91,7 +91,7 @@ public class CartService {
     OrderRequest orderRequest = new OrderRequest(orderLineItems);
 
     // Делаем Feign-вызов в order-service для сохранения заказа в postgre
-    String response = orderClient.placeOrder(orderRequest, token);
+    String response = orderClient.placeOrder(orderRequest, username, token);
 
     // Очищаем корзину в Redis без возврата на склад, потому что товары успешно куплены
     redisTemplate.delete(getCartKey(username));

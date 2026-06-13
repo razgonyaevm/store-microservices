@@ -20,8 +20,14 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             auth ->
                 auth
-                    // Разрешаем публичный доступ к регистрации и авторизации
-                    .requestMatchers("/api/user/register", "api/user/login", "/error")
+                    // Разрешаем публичный доступ к регистрации, авторизации и списанию
+                    .requestMatchers(
+                        "/api/user/register",
+                        "api/user/login",
+                        "api/user/deduct",
+                        "api/user/balance",
+                        "api/user/recharge",
+                        "/error")
                     .permitAll()
                     .anyRequest()
                     .authenticated())

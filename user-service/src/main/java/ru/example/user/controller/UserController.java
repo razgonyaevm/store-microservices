@@ -1,5 +1,6 @@
 package ru.example.user.controller;
 
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -26,5 +27,24 @@ public class UserController {
   public AuthResponse login(@RequestBody AuthRequest authRequest) {
     String token = userService.login(authRequest);
     return new AuthResponse(token);
+  }
+
+  @GetMapping("/balance")
+  @ResponseStatus(HttpStatus.OK)
+  public BigDecimal getBalance(@RequestHeader("X-User-Name") String username) {
+    return userService.getBalance(username);
+  }
+
+  @PostMapping("/recharge")
+  @ResponseStatus(HttpStatus.OK)
+  public BigDecimal rechargeBalance(
+      @RequestHeader("X-User-Name") String username, @RequestParam BigDecimal amount) {
+    return userService.rechargeBalance(username, amount);
+  }
+
+  @PutMapping("/deduct")
+  @ResponseStatus(HttpStatus.OK)
+  public void deductBalance(@RequestParam String username, @RequestParam BigDecimal amount) {
+    userService.deductBalance(username, amount);
   }
 }

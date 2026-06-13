@@ -47,17 +47,25 @@ spring:
           filters:
             - AuthenticationFilter
 
-        # Маршрут для пользователей
-        - id: user-service
-          uri: lb://user-service
-          predicates:
-            - Path=/api/user/**
-
         # Маршрут корзины
         - id: cart-service
           uri: lb://cart-service
           predicates:
             - Path=/api/cart/**
+          filters:
+            - AuthenticationFilter
+
+        # Публичный маршрут на регистрацию и вход
+        - id: user-service-public
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/login, /api/user/register
+
+        # Защищенный маршрут на баланс и пополнение
+        - id: user-service-protected
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/balance, /api/user/recharge
           filters:
             - AuthenticationFilter
 

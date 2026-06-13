@@ -9,6 +9,11 @@ const currentUser = ref(localStorage.getItem('username') || null)
 const token = ref(localStorage.getItem('token') || null)
 const isAdmin = ref(false)
 
+// Финансовый баланс пользователя
+const userBalance = ref(0)
+const rechargeAmount = ref(100) // По умолчанию предлагаем пополнять на 100 баксов
+const rechargeLoading = ref(false)
+
 // Состояние корзины
 const cart = ref({items: []})
 const cartLoading = ref(false)
@@ -82,6 +87,39 @@ const checkUserRoles = () => {
     }
   } else {
     isAdmin.value = false
+  }
+}
+
+// Запрос баланса пользователя из user-service
+const fetchBalance = async () => {
+  if (!token.value) return
+  try {
+    const headers = {Authorization: `Bearer ${token.value}`}
+    const response = await axios.get(`${API_BASE_URL}/user/balance`, {headers})
+    userBalance.value = response.data
+  } catch (error) {
+    console.error('Failed to fetch balance:', error)
+  }
+}
+
+// Запрос на пополнение баланса в user-service
+const handleRecharge = async () => {
+  if (!token.value || rechargeAmount.value <= 0) return
+  rechargeLoading.value = true
+  try {
+    const headers = {Authorization: `Bearer ${token.value}`}
+    const response = await axios.post(`${API_BASE_URL}/user/recharge`, null, {
+      params: {amount: rechargeAmount.value},
+      headers
+    })
+
+    // Бэк возвращает обновленный баланс
+    userBalance.value = response.data
+    showToast(`Successfully recharged $${rechargeAmount.value}!`, 'success')
+  } catch (error) {
+    showToast('Failed to recharge balance', 'error')
+  } finally {
+    rechargeLoading.value = false
   }
 }
 
@@ -169,6 +207,9 @@ const handleLogin = async () => {
     // Проверяем роль вошедшего пользователя
     checkUserRoles()
 
+    // Загружаем баланс
+    await fetchBalance()
+
     // Загружаем корзину вошедшего пользователя
     await fetchCart()
 
@@ -188,6 +229,7 @@ const handleLogout = () => {
   currentUser.value = null
   cart.value = {items: []}
   isAdmin.value = false
+  userBalance.value = 0
   localStorage.removeItem('token')
   localStorage.removeItem('username')
   showToast('Logged out successfully', 'success')
@@ -260,8 +302,11 @@ const checkoutCart = async () => {
     cart.value = {items: []}
 
     await checkStockStatus()
+    await fetchBalance()
   } catch (error) {
-    showToast(error.response?.data?.message || 'Checkout failed', 'error')
+    console.error('Checkout failed:', error)
+    const errorMsg = error.response?.data || 'Checkout failed'
+    showToast(errorMsg, 'error')
   } finally {
     cartLoading.value = false
   }
@@ -303,6 +348,10 @@ const getCartTotal = () => {
   return cart.value.items.reduce((total, item) => total + (item.price * item.quantity), 0)
 }
 
+const getCartCount = () => {
+  return cart.value.items.reduce((total, item) => total + item.quantity, 0)
+}
+
 // Функция показа уведомления
 const showToast = (message, type) => {
   toast.value.message = message
@@ -320,6 +369,7 @@ onMounted(() => {
   checkStockStatus()
   if (token.value) {
     checkUserRoles()
+    fetchBalance()
     fetchCart()
   }
 })
@@ -330,9 +380,26 @@ onMounted(() => {
     <!-- Панель авторизации -->
     <div class="auth-bar">
       <div v-if="currentUser" class="user-profile">
-        <span>👤 Welcome, <strong>{{ currentUser }}</strong> <span v-if="isAdmin" class="admin-tag">ADMIN</span></span>
-        <button @click="handleLogout" class="logout-button">Logout</button>
+        <div class="profile-info">
+          <span>👤 Welcome, <strong>{{ currentUser }}</strong>
+            <span v-if="isAdmin" class="admin-tag">ADMIN</span>
+          </span>
+          <!-- Отображение баланса -->
+          <span class="balance-display">💳 Balance: <strong>${{ userBalance.toFixed(2) }}</strong></span>
+        </div>
+
+        <div class="profile-actions">
+          <!-- Форма пополнения баланса -->
+          <form @submit.prevent="handleRecharge" class="recharge-form">
+            <input v-model="rechargeAmount" type="number" min="10" step="10" class="recharge-info" required/>
+            <button type="submit" :disabled="rechargeLoading" class="recharge-button">
+              {{ rechargeLoading ? '...' : 'Recharge' }}
+            </button>
+          </form>
+          <button @click="handleLogout" class="logout-button">Logout</button>
+        </div>
       </div>
+
       <div v-else class="auth-forms">
         <div class="auth-toggle">
           <button
@@ -504,6 +571,57 @@ onMounted(() => {
   align-items: center;
 }
 
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.balance-display {
+  font-size: 0.95rem;
+  color: #2e7d32;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Форма пополнения баланса */
+.recharge-form {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.recharge-input {
+  width: 70px;
+  padding: 0.4rem;
+  border: 1px solid #dcdde1;
+  border-radius: 6px;
+  outline: none;
+  text-align: center;
+}
+
+.recharge-button {
+  background: #2e7d32;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.recharge-button:hover {
+  background: #1b5e20;
+}
+
+.recharge-button:disabled {
+  background: #b0bec5;
+}
+
 .logout-button {
   background: #e74c3c;
   color: white;
@@ -596,7 +714,7 @@ onMounted(() => {
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
   margin-bottom: 1.5rem;
-  border: 1px solid #f1c40f; /* Окрашиваем рамку в золотой цвет */
+  border: 1px solid #f1c40f;
 }
 
 .admin-panel h2 {
@@ -675,6 +793,15 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.cart-count-badge {
+  background: #e74c3c;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 0.2rem 0.6rem;
+  border-radius: 50px;
 }
 
 .empty-cart {

@@ -15,7 +15,8 @@ public class OrderController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public String placeOrder(@RequestBody OrderRequest orderRequest) {
-    return orderService.placeOrder(orderRequest);
+  public String placeOrder(
+      @RequestBody OrderRequest orderRequest, @RequestHeader("X-User-Name") String username) {
+    return orderService.placeOrder(orderRequest, username);
   }
 }
