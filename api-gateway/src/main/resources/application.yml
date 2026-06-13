@@ -7,6 +7,8 @@ spring:
   cloud:
     gateway:
       globalcors:
+        # Принудительно обрабатывать preflight запросы OPTIONS на уровне шлюза
+        add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
             allowed-origins:
@@ -17,15 +19,25 @@ spring:
               - POST
               - PUT
               - DELETE
+              - OPTIONS
             allowed-headers: "*"
       routes:
-        # Маршрут для inventory-service
-        - id: inventory-service
+        # Публичный маршрут склада (только для просмотра GET)
+        - id: inventory-service-public
           # lb:// - Load Balancer. Шлюз запросит у Eureka адрес сервиса с именем inventory-service
           uri: lb://inventory-service
           # Все запросы, начинающиеся с /api/inventory/, будут перенаправлены туда
           predicates:
             - Path=/api/inventory/**
+            - Method=GET # GET запросы всем без авторизации
+
+        - id: inventory-service-admin
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**
+            - Method=POST,PUT,DELETE # Блокируем POST, PUT, DELETE запросы
+          filters:
+            - AuthenticationFilter=ADMIN # Пропустит только пользователей с ролью ADMIN
 
         # Маршрут для order-service
         - id: order-service

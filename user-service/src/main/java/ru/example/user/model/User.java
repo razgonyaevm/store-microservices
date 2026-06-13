@@ -22,4 +22,8 @@ public class User {
   private String password; // В виде Bcrypt-хэша
 
   private String email;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private Role role;
 }

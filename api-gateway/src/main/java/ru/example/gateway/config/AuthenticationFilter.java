@@ -1,7 +1,7 @@
 package ru.example.gateway.config;
 
-import io.jsonwebtoken.Jwts;
-import java.util.HexFormat;
+import io.jsonwebtoken.Claims;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -25,7 +25,23 @@ public class AuthenticationFilter
     this.jwtUtil = jwtUtil;
   }
 
-  public static class Config {}
+  public static class Config {
+    private String role;
+
+    public String getRole() {
+      return role;
+    }
+
+    public void setRole(String role) {
+      this.role = role;
+    }
+  }
+
+  // Метод, который позволяет писать в yml сокращенную запись вида: - AuthenticationFilter=ADMIN
+  @Override
+  public List<String> shortcutFieldOrder() {
+    return List.of("role");
+  }
 
   @Override
   public GatewayFilter apply(Config config) {
@@ -50,20 +66,33 @@ public class AuthenticationFilter
         // Валидируем токен
         jwtUtil.validateToken(token);
 
-        // Расшифровываем имя пользователя из токена
-        String username =
-            Jwts.parserBuilder()
-                .setSigningKey(HexFormat.of().parseHex(secret))
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+        // Извлекаем Claims (username и roles)
+        Claims claims = jwtUtil.getClaims(token);
+        String username = claims.getSubject();
+
+        // Извлекаем список ролей
+        List<String> userRoles = claims.get("roles", List.class);
+
+        // Проверка прав
+        if (config.getRole() != null) {
+          if (userRoles == null || !userRoles.contains(config.getRole())) {
+            throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN, "Access denied: insufficient privileges");
+          }
+        }
 
         // Пробрасываем имя пользователя в заголовке X-User-Name
         ServerHttpRequest modifiedRequest =
-            exchange.getRequest().mutate().header("X-User-Name", username).build();
+            exchange
+                .getRequest()
+                .mutate()
+                .header("X-User-Name", username)
+                .header("X-User_Roles", String.join(",", userRoles))
+                .build();
 
         return chain.filter(exchange.mutate().request(modifiedRequest).build());
+      } catch (ResponseStatusException ex) {
+        throw ex;
       } catch (Exception e) {
         throw new ResponseStatusException(
             HttpStatus.UNAUTHORIZED, "Unauthorized access: " + e.getMessage());

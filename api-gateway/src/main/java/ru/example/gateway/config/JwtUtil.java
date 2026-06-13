@@ -1,5 +1,6 @@
 package ru.example.gateway.config;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
@@ -16,6 +17,10 @@ public class JwtUtil {
   public void validateToken(final String token) {
     // Метод parseClaimsJws выбросит исключение, если токен изменен или просрочен
     Jwts.parserBuilder().setSigningKey(getSignKey()).build().parseClaimsJws(token);
+  }
+
+  public Claims getClaims(final String token) {
+    return Jwts.parserBuilder().setSigningKey(getSignKey()).build().parseClaimsJws(token).getBody();
   }
 
   private Key getSignKey() {

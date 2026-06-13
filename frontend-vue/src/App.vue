@@ -7,6 +7,7 @@ const API_BASE_URL = 'http://localhost:8080/api'
 // Данные пользователя и авторизация
 const currentUser = ref(localStorage.getItem('username') || null)
 const token = ref(localStorage.getItem('token') || null)
+const isAdmin = ref(false)
 
 // Состояние корзины
 const cart = ref({items: []})
@@ -17,7 +18,13 @@ const authMode = ref('login')
 const usernameInput = ref('')
 const passwordInput = ref('')
 const emailInput = ref('')
+const roleInput = ref('USER')
 const authLoading = ref(false)
+
+// Состояние панели администратора (добавление товаров на склад)
+const adminSkuInput = ref('iphone_15')
+const adminQtyInput = ref(10)
+const adminLoading = ref(false)
 
 // Список товаров (данные храним на фронт, остатки проверяем на бэке)
 const products = ref([
@@ -49,6 +56,34 @@ const toast = ref({
   message: '',
   type: 'success'
 })
+
+// JS-декодер JWT токенов
+const decodeJwt = (tokenStr) => {
+  try {
+    const base64Url = tokenStr.split('.')[1]
+    const base64 = base64Url.replace(/-/g, '+').replace('/_/g', '/')
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    }).join(''))
+    return JSON.parse(jsonPayload)
+  } catch (e) {
+    return null
+  }
+}
+
+// Проверка роли пользователя на основе токена
+const checkUserRoles = () => {
+  if (token.value) {
+    const decoded = decodeJwt(token.value)
+    if (decoded && decoded.roles) {
+      isAdmin.value = decoded.roles.includes('ADMIN')
+    } else {
+      isAdmin.value = false
+    }
+  } else {
+    isAdmin.value = false
+  }
+}
 
 // Метод проверки наличия товаров на складе через Gateway -> Inventory Service
 const checkStockStatus = async () => {
@@ -96,7 +131,8 @@ const handleRegister = async () => {
     const response = await axios.post(`${API_BASE_URL}/user/register`, {
       username: usernameInput.value,
       password: passwordInput.value,
-      email: emailInput.value
+      email: emailInput.value,
+      role: roleInput.value
     })
     showToast(response.data, 'success')
     authMode.value = 'login'
@@ -130,6 +166,9 @@ const handleLogin = async () => {
 
     showToast('Successfully logged in!', 'success')
 
+    // Проверяем роль вошедшего пользователя
+    checkUserRoles()
+
     // Загружаем корзину вошедшего пользователя
     await fetchCart()
 
@@ -148,6 +187,7 @@ const handleLogout = () => {
   token.value = null
   currentUser.value = null
   cart.value = {items: []}
+  isAdmin.value = false
   localStorage.removeItem('token')
   localStorage.removeItem('username')
   showToast('Logged out successfully', 'success')
@@ -227,6 +267,37 @@ const checkoutCart = async () => {
   }
 }
 
+// Административная операция пополнения остатков склада
+const addStockToInventory = async () => {
+  if (!token.value || !isAdmin.value) return
+  adminLoading.value = true
+  try {
+    const headers = {Authorization: `Bearer ${token.value}`}
+    const payload = [
+      {
+        skuCode: adminSkuInput.value,
+        quantity: parseInt(adminQtyInput.value)
+      }
+    ]
+
+    // PUT-запрос к защищенной админской ветке склада через шлюз
+    await axios.put(`${API_BASE_URL}/inventory/increase`, payload, {headers})
+
+    showToast(`Successfully added ${adminQtyInput.value} items to ${adminSkuInput.value}!`, 'success')
+
+    // Обновляем остатки на витрине
+    await checkStockStatus()
+  } catch (error) {
+    console.error('Failed to add stock:', error)
+    const errorMsg = error.response?.status === 403
+        ? 'Access Denied: Only ADMIN can perform this action'
+        : 'Failed to update stock'
+    showToast(errorMsg, 'error')
+  } finally {
+    adminLoading.value = false
+  }
+}
+
 // Подсчет общей стоимости корзины
 const getCartTotal = () => {
   return cart.value.items.reduce((total, item) => total + (item.price * item.quantity), 0)
@@ -248,6 +319,7 @@ const showToast = (message, type) => {
 onMounted(() => {
   checkStockStatus()
   if (token.value) {
+    checkUserRoles()
     fetchCart()
   }
 })
@@ -255,10 +327,10 @@ onMounted(() => {
 
 <template>
   <div class="app-container">
-    <!-- Навигационная панель / Личный кабинет -->
+    <!-- Панель авторизации -->
     <div class="auth-bar">
       <div v-if="currentUser" class="user-profile">
-        <span>👤 Welcome, <strong>{{ currentUser }}</strong></span>
+        <span>👤 Welcome, <strong>{{ currentUser }}</strong> <span v-if="isAdmin" class="admin-tag">ADMIN</span></span>
         <button @click="handleLogout" class="logout-button">Logout</button>
       </div>
       <div v-else class="auth-forms">
@@ -280,10 +352,37 @@ onMounted(() => {
           <input v-model="passwordInput" type="password" placeholder="Password" required/>
           <input v-if="authMode === 'register'" v-model="emailInput" type="email" placeholder="Email"/>
 
+          <select v-if="authMode === 'register'" v-model="roleInput" class="role-select">
+            <option value="USER">USER</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+
           <button type="submit" :disabled="authLoading" class="auth-submit">
             {{ authLoading ? '...' : (authMode === 'login' ? 'Sign In' : 'Sign Up') }}
           </button>
         </form>
+      </div>
+    </div>
+
+    <!-- Панель администратора -->
+    <div v-if="isAdmin" class="admin-panel">
+      <h2>⚙️Admin Control Panel (Inventory Management)</h2>
+      <div class="admin-form">
+        <label>Select Product:</label>
+
+        <select v-model="adminSkuInput" class="admin-select">
+          <option v-for="product in products"
+                  :key="product.id"
+                  :value="product.skuCode">{{ product.name }} ({{ product.skuCode }})
+          </option>
+        </select>
+
+        <label>Quantity to Add:</label>
+        <input v-model="adminQtyInput" type="number" min="1" class="admin-qty-input"/>
+
+        <button @click="addStockToInventory" :disabled="adminLoading" class="admin-submit-button">
+          {{ adminLoading ? 'Updating...' : 'Add Stock' }}
+        </button>
       </div>
     </div>
 
@@ -452,12 +551,20 @@ onMounted(() => {
   flex-grow: 1;
 }
 
-.inline-form input {
+.inline-form input, .role-select {
   padding: 0.5rem;
   border: 1px solid #dcdde1;
   border-radius: 6px;
   outline: none;
+}
+
+.inline-form input {
   flex-grow: 1;
+}
+
+.role-select {
+  background: white;
+  cursor: pointer;
 }
 
 .auth-submit {
@@ -468,6 +575,84 @@ onMounted(() => {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+}
+
+.admin-tag {
+  background: #f1c40f;
+  color: #2c3e50;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+}
+
+/* ПАНЕЛЬ АДМИНИСТРАТОРА */
+.admin-panel {
+  width: 100%;
+  max-width: 800px;
+  background: #fcfcfc;
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+  margin-bottom: 1.5rem;
+  border: 1px solid #f1c40f; /* Окрашиваем рамку в золотой цвет */
+}
+
+.admin-panel h2 {
+  font-size: 1.2rem;
+  margin-top: 0;
+  margin-bottom: 1.2rem;
+  color: #d68910;
+}
+
+.admin-form {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-form label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #515a5a;
+}
+
+.admin-select {
+  padding: 0.5rem;
+  border: 1px solid #dcdde1;
+  border-radius: 6px;
+  background: white;
+  outline: none;
+}
+
+.admin-qty-input {
+  padding: 0.5rem;
+  border: 1px solid #dcdde1;
+  border-radius: 6px;
+  width: 80px;
+  outline: none;
+}
+
+.admin-submit-button {
+  background: #d68910;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.admin-submit-button:hover {
+  background: #b7730e;
+}
+
+.admin-submit-button:disabled {
+  background: #b0bec5;
+  cursor: not-allowed;
 }
 
 /* Панель корзины */
@@ -483,7 +668,7 @@ onMounted(() => {
 }
 
 .cart-panel h2 {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   margin-top: 0;
   margin-bottom: 1rem;
   color: #2c3e50;
@@ -512,7 +697,7 @@ onMounted(() => {
   padding: 0.8rem;
   border-bottom: 2px solid #f1f2f6;
   color: #7f8c8d;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .cart-table td {
@@ -535,13 +720,13 @@ onMounted(() => {
 }
 
 .cart-total {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   color: #2c3e50;
 }
 
 .cart-total strong {
   color: #2e7d32;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
 }
 
 .cart-actions {
