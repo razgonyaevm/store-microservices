@@ -313,7 +313,7 @@ onMounted(() => {
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   border: 1px solid #eef2f3;
-  width: 100%;
+  width: 90%;
 }
 
 .vertical-form {

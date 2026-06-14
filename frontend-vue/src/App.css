@@ -167,7 +167,7 @@
 
 /* ПАНЕЛЬ АДМИНИСТРАТОРА (Две секции) */
 .admin-panel {
-    width: 100%;
+    width: 94%;
     max-width: 800px;
     background: #fcfcfc;
     padding: 1.5rem;
@@ -258,7 +258,7 @@
 
 /* Панель корзины */
 .cart-panel {
-    width: 100%;
+    width: 94%;
     max-width: 800px;
     background: white;
     padding: 1.5rem;
