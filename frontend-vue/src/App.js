@@ -92,10 +92,10 @@ export default {
                 products.value = response.data
                     .sort((a, b) => b.price - a.price)
                     .map(p => ({
-                    ...p,
-                    inStock: p.isInStock,
-                    loading: false
-                }))
+                        ...p,
+                        inStock: p.isInStock,
+                        loading: false
+                    }))
 
                 // По умолчанию выставляем первый товар в селекторе пополнения склада
                 if (products.value.length > 0 && !adminSkuInput.value) {
@@ -429,6 +429,27 @@ export default {
             }
         }
 
+        // Метод удаления 1 единицы товара из корзины (возврат 1 штуки на склад)
+        const removeOneFromCart = async (skuCode) => {
+            if (!token.value) return
+            try {
+                const headers = {Authorization: `Bearer ${token.value}`}
+                const response = await axios.post(`${API_BASE_URL}/cart/remove`, null, {
+                    params: {skuCode},
+                    headers
+                })
+
+                cart.value = response.data
+                showToast('Returned 1 item to shelf', 'success')
+
+                // Обновляем остатки на витрине
+                await fetchProductsFromDb()
+            } catch (error) {
+                console.error('Failed to remove item from cart:', error)
+                showToast('Failed to remove item from cart', 'error')
+            }
+        }
+
         // Подсчет общей стоимости корзины
         const getCartTotal = () => {
             return cart.value.items.reduce((total, item) => total + (item.price * item.quantity), 0)
@@ -472,7 +493,7 @@ export default {
             addToCart, clearCart, checkoutCart,
             addStockToInventory, createNewProduct, deleteProduct,
             handleEditProductChange, updateProductDetails,
-            getCartTotal, getCartCount, handleRecharge
+            getCartTotal, getCartCount, handleRecharge, removeOneFromCart
         }
     }
 }

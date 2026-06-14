@@ -197,8 +197,19 @@
           <tbody>
           <tr v-for="item in cart.items" :key="item.skuCode">
             <td><code>{{ item.skuCode }}</code></td>
+
             <td>${{ item.price }}</td>
-            <td><strong>{{ item.quantity }}</strong></td>
+
+            <td class="cart-qty-cell">
+              <button
+                  @click='removeOneFromCart(item.skuCode)'
+                  class="cart-minus-button"
+                  title="Return 1 item to shelf"
+              >➖
+              </button>
+              <strong>{{ item.quantity }}</strong>
+            </td>
+
             <td>${{ item.price * item.quantity }}</td>
           </tr>
           </tbody>

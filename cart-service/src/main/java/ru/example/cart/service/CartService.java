@@ -55,6 +55,34 @@ public class CartService {
     return cart;
   }
 
+  // Метод удаления 1 единицы товара из корзины с возвратом на склад
+  public Cart removeOneFromCart(String username, String skuCode) {
+    Cart cart = getCart(username);
+
+    // Ищем товар в корзине
+    Optional<CartItem> existingItem =
+        cart.getItems().stream().filter(item -> item.getSkuCode().equals(skuCode)).findFirst();
+
+    if (existingItem.isPresent()) {
+      CartItem item = existingItem.get();
+
+      // Компенсирующий Feign-запрос на склад - возвращаем одну штуку товара обратно
+      inventoryClient.increaseStock(List.of(new InventoryReduceRequest(skuCode, 1)));
+
+      // Уменьшаем количество в корзине
+      if (item.getQuantity() > 1) {
+        item.setQuantity(item.getQuantity() - 1);
+      } else {
+        // Если оставался только один товар, то полностью удаляем позицию из корзины
+        cart.getItems().remove(item);
+      }
+
+      // Сохраняем обновленную корзину в Redis
+      redisTemplate.opsForValue().set(getCartKey(username), cart);
+    }
+    return cart;
+  }
+
   public void clearCart(String username) {
     Cart cart = getCart(username);
     if (cart.getItems().isEmpty()) {

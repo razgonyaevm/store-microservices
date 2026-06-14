@@ -41,4 +41,11 @@ public class CartController {
       @RequestHeader("X-User-Name") String username, @RequestHeader("Authorization") String token) {
     return cartService.checkout(username, token);
   }
+
+  @PostMapping("/remove")
+  @ResponseStatus(HttpStatus.OK)
+  public Cart removeOneFromCart(
+      @RequestHeader("X-User-Name") String username, @RequestParam String skuCode) {
+    return cartService.removeOneFromCart(username, skuCode);
+  }
 }
