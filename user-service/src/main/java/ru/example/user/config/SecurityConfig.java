@@ -27,6 +27,10 @@ public class SecurityConfig {
                         "api/user/deduct",
                         "api/user/balance",
                         "api/user/recharge",
+                        "api/user/all",
+                        "api/user/{id}/role",
+                        "api/user/{id}",
+                        "/api/user/me",
                         "/error")
                     .permitAll()
                     .anyRequest()

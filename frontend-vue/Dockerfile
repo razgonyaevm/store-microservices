@@ -18,7 +18,10 @@ RUN npm run build
 # Запуск веб-сервера Nginx для раздачи статики
 FROM nginx:1.25-alpine AS production-stage
 
-# Копируем скомпилированные файлы из предыдущего этапа в папку Nginx по умолчанию
+# Копируем кастомный конфиг Nginx для поддержки History Mode в Vue Router
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Копируем скомпилированные файлы из предыдущего этапа
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
 # Открываем стандартный порт HTTP

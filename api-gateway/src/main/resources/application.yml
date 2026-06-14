@@ -65,9 +65,26 @@ spring:
         - id: user-service-protected
           uri: lb://user-service
           predicates:
-            - Path=/api/user/balance, /api/user/recharge
+            - Path=/api/user/balance, /api/user/recharge, /api/user/me
           filters:
             - AuthenticationFilter
+
+        # Админский маршрут пользователей (список пользователей, смена ролей доступна только админу)
+        - id: user-service-admin-panel
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/all, /api/user/*/role
+          filters:
+            - AuthenticationFilter=ADMIN
+
+        # Удаление пользователей для админа
+        - id: user-service-delete-admin
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/*
+            - Method=DELETE
+          filters:
+            - AuthenticationFilter=ADMIN
 
 eureka:
   client:

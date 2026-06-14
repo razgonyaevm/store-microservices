@@ -1,6 +1,9 @@
 package ru.example.gateway.config;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import java.util.HexFormat;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -10,20 +13,25 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Mono;
+import ru.example.gateway.dto.UserResponse;
 
 @Component
 public class AuthenticationFilter
     extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 
   private final JwtUtil jwtUtil;
+  private final WebClient.Builder webClientBuilder;
 
   @Value("${app.jwt.secret}")
   private String secret;
 
-  public AuthenticationFilter(JwtUtil jwtUtil) {
+  public AuthenticationFilter(JwtUtil jwtUtil, WebClient.Builder webClientBuilder) {
     super(Config.class);
     this.jwtUtil = jwtUtil;
+    this.webClientBuilder = webClientBuilder;
   }
 
   public static class Config {
@@ -54,6 +62,11 @@ public class AuthenticationFilter
         return chain.filter(exchange);
       }
 
+      String path = request.getURI().getPath();
+      if (path.contains("/api/user/login") || path.contains("/api/user/register")) {
+        return chain.filter(exchange);
+      }
+
       // Проверяем наличие заголовка Authorization
       if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing authorization header");
@@ -73,30 +86,62 @@ public class AuthenticationFilter
         jwtUtil.validateToken(token);
 
         // Извлекаем Claims (username и roles)
-        Claims claims = jwtUtil.getClaims(token);
+        Claims claims =
+            Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(HexFormat.of().parseHex(secret)))
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
         String username = claims.getSubject();
 
         // Извлекаем список ролей
         List<String> userRoles = claims.get("roles", List.class);
 
-        // Проверка прав
-        if (config.getRole() != null) {
-          if (userRoles == null || !userRoles.contains(config.getRole())) {
-            throw new ResponseStatusException(
-                HttpStatus.FORBIDDEN, "Access denied: insufficient privileges");
-          }
-        }
-
-        // Пробрасываем имя пользователя в заголовке X-User-Name
         ServerHttpRequest modifiedRequest =
             exchange
                 .getRequest()
                 .mutate()
                 .header("X-User-Name", username)
-                .header("X-User_Roles", String.join(",", userRoles))
+                .header("X-User-Roles", String.join(",", userRoles))
                 .build();
 
-        return chain.filter(exchange.mutate().request(modifiedRequest).build());
+        // Сквозная живая верификация сессии и роли для любого защищенного пути
+        // Делаем запрос в user-service, чтобы убедиться, что пользователь существует в бд и его
+        // роль верна
+        return webClientBuilder
+            .build()
+            .get()
+            .uri("http://user-service/api/user/me")
+            .header("X-User-Name", username)
+            .retrieve()
+            .bodyToMono(UserResponse.class)
+            .flatMap(
+                userResponse -> {
+                  // Если запрашивается админский маршрут, а роль пользователя изменилась
+                  if (config.getRole() != null) {
+                    if (!userResponse.role().equals(config.getRole())) {
+                      return Mono.error(
+                          new ResponseStatusException(
+                              HttpStatus.FORBIDDEN, "Access denied: role changed"));
+                    }
+                  }
+
+                  // Если пользователь существует и роли верны, то пропускаем запрос
+                  return chain.filter(exchange.mutate().request(modifiedRequest).build());
+                })
+            .onErrorResume(
+                err -> {
+                  // Если пользователь удален, user-service вернет ошибку. WebClient выбросит
+                  // исключение
+                  // перехватываем его и возвращаем 403 Forbidden, это вызовет авто логаут на фронте
+                  System.err.println(
+                      "WebClient verification failed (User deleted or role changed): "
+                          + err.getMessage());
+                  return Mono.error(
+                      new ResponseStatusException(
+                          HttpStatus.FORBIDDEN, "Access denied: session invalid"));
+                });
       } catch (ResponseStatusException ex) {
         throw ex;
       } catch (Exception e) {

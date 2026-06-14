@@ -1,8 +1,8 @@
 # Microservice Tech Store
 
 Высоко нагруженное отказоустойчивое Full-Stack приложение для заказа техники, построенное на базе микросервисной
-архитектуры с использованием **Spring Boot 3**, **Spring Cloud**, **Apache Kafka**, **Redis**, **PostgreSQL** и **Vue 3
-**.
+архитектуры с использованием **Spring Boot 3**, **Spring Cloud**, **Apache Kafka**, **Redis**, **PostgreSQL** и
+**Vue 3**.
 
 Проект разработан с учетом современных паттернов проектирования распределенных систем, снабжен сквозным мониторингом,
 покрыт интеграционными тестами с использованием **Testcontainers** и интегрирован в автоматический пайплайн **CI/CD** на
@@ -47,16 +47,16 @@
 
 ## Технологический стек
 
-| Направление                    | Технологии                                                                                                |
-|:-------------------------------|:----------------------------------------------------------------------------------------------------------|
-| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)         |
-| **Фронтенд**                   | Vue 3 (Composition API), Vite, Axios, HTML5/CSS3 (Grid, Flexbox, Сплит SFC на App.vue / App.js / App.css) |
-| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование, Role-Based Access Control (RBAC)            |
-| **Базы данных**                | PostgreSQL 15, Redis 7 (In-Memory кэш), Схема "Database per Service"                                      |
-| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                             |
-| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                        |
-| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                              |
-| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry)       |
+| Направление                    | Технологии                                                                                                             |
+|:-------------------------------|:-----------------------------------------------------------------------------------------------------------------------|
+| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)                      |
+| **Фронтенд**                   | Vue 3 (Composition API), Vite Router (клиентская маршрутизация), Axios, HTML5/CSS3 (Grid, Flexbox, Сплит SPA на views) |
+| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование, Role-Based Access Control (RBAC)                         |
+| **Базы данных**                | PostgreSQL 15, Redis 7 (In-Memory кэш), Схема "Database per Service"                                                   |
+| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                                          |
+| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                                     |
+| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                                           |
+| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry)                    |
 
 ---
 
@@ -88,19 +88,29 @@
 
 * **Database per Service:** Каждому микросервису принадлежит своя изолированная база данных (PostgreSQL у User, Order,
   Inventory; Redis у Cart). Сервисы не имеют прямого доступа к чужим БД.
-* **Edge Security & RBAC (Безопасность на шлюзе):** Авторизация проверяется один раз на шлюзе `api-gateway`. Шлюз
-  декларативно разграничивает доступ к маршрутам: обычный каталог доступен без авторизации, корзина и баланс требуют
-  роли `USER`/`ADMIN`, а добавление и изменение товаров в `inventory-service` разрешено только для роли `ADMIN`
-  (возвращается `403 Forbidden` при нарушении).
+* **Гибридная Edge-безопасность и отзыв прав irl:**
+    * Авторизация проверяется один раз на шлюзе `api-gateway`. Для обычных запросов шлюз работает в быстром stateless
+      режиме
+    * Для защищенных запросов (корзина, заказы, админка) шлюз делает фоновый реактивный запрос через `WebClient` в
+      `user-service`, проверяя, существует ли еще пользователь в БД и верна ли его роль
+    * Если пользователя удалили или понизили в правах, то шлюз кидает `403 Forbidden`. Фронт-перехватчик
+      `Axios Interceptor` ловит эту ошибку, автоматически стирает токен из браузера и выполняет логаут
 * **Header Propagation (Проброс заголовков):** Шлюз извлекает `username` и `roles` из JWT-токена и автоматически
   пробрасывает их downstream-микросервисам в HTTP-заголовках `X-User-Name` и `X-User-Roles`.
 * **Compensating Transaction (Компенсирующая транзакция):** Реализован надежный механизм отмены резервирования. Если
   пользователь очищает корзину - сервис корзины посылает компенсирующий запрос на склад, и зарезервированные товары
-  мгновенно возвращаются «на полку».
+  мгновенно возвращаются на полку.
 * **Транзакционная система оплаты (Saga):** При покупке `order-service` производит списание средств с баланса
   пользователя в `user-service`. Если у пользователя недостаточно средств - `user-service` выбрасывает ошибку
   `400 Bad Request`, транзакция создания заказа откатывается, а корзина в Redis остается заполненной
   (покупка не совершается).
+* **Каскадная трансляция ошибок:** С помощью аннотации `@RestControllerAdvice` во всех сервисах настроен перехват
+  `FeignException` и `IllegalArgumentException`. Ошибки с бэкенда (например, о нехватке денег или товаров) транслируются
+  через всю цепочку вызовов в виде `400 Bad Request` с сохранением оригинального текста ошибки, отображаясь на фронтенде
+  в виде понятных Toast-уведомлений.
+* **Nginx Multi-stage Dockerization:** Фронтенд на Vue 3 собирается внутри Docker в режиме многоэтапной сборки и
+  раздается через Nginx. Настроен кастомный конфиг Nginx с поддержкой `try_files` для корректной работы путей Vue
+  Router (History Mode) при перезапуске страниц.
 * **Event-Driven Architecture (Событийная архитектура):** Оформление заказа и отправка уведомлений полностью развязаны
   во времени с помощью брокера сообщений Kafka. Сбой в сервисе уведомлений не блокирует процесс создания заказов.
 * **Distributed Tracing (Распределенная трассировка):** Благодаря Micrometer и Zipkin, каждому HTTP-запросу
@@ -136,11 +146,17 @@
 
 ![Страница регистрации](img/register_page.png)
 
-![Страница логина](img/login_page.png)
+![Страница логина](img/sign_in_page.png)
 
-![Страница Администратора](img/admin_page.png)
+![Страница Администратора](img/admin_store.png)
 
-![Страница пользователя](img/main_user_page.png)
+![Корзина товаров администратора](img/admin_profile.png)
+
+![Панель управления администратора](img/admin_inventory.png)
+
+![Панель управления пользователями у администратора](img/admin_user_management.png)
+
+---
 
 ## Как запустить проект локально
 
