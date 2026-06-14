@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.example.inventory.dto.InventoryReduceRequest;
 import ru.example.inventory.dto.InventoryResponse;
+import ru.example.inventory.dto.ProductRequest;
+import ru.example.inventory.dto.ProductResponse;
 import ru.example.inventory.service.InventoryService;
 
 @RestController
@@ -21,6 +23,34 @@ public class InventoryController {
   @ResponseStatus(HttpStatus.OK)
   public List<InventoryResponse> isinStock(@RequestParam List<String> skuCode) {
     return inventoryService.isInStock(skuCode);
+  }
+
+  // Получение всех продуктов для каталога фронта
+  @GetMapping("/products")
+  @ResponseStatus(HttpStatus.OK)
+  public List<ProductResponse> getAllProducts() {
+    return inventoryService.getAllProducts();
+  }
+
+  // Создание нового товара администратором
+  @PostMapping("/products")
+  @ResponseStatus(HttpStatus.OK)
+  public ProductResponse createProduct(@RequestBody ProductRequest request) {
+    return inventoryService.createProduct(request);
+  }
+
+  // Редактирование товара администратором
+  @PutMapping("/products/{id}")
+  @ResponseStatus(HttpStatus.OK)
+  public ProductResponse updateProduct(@PathVariable Long id, @RequestBody ProductRequest request) {
+    return inventoryService.updateProduct(id, request);
+  }
+
+  // Удаление товара администратором
+  @DeleteMapping("/products/{id}")
+  @ResponseStatus(HttpStatus.OK)
+  public void deleteProduct(@PathVariable Long id) {
+    inventoryService.deleteProduct(id);
   }
 
   @PutMapping("/reduce")

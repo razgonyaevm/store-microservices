@@ -1,5 +1,6 @@
 package ru.example.inventory;
 
+import java.math.BigDecimal;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,11 +18,21 @@ public class InventoryServiceApplication {
   public CommandLineRunner loadData(InventoryRepository inventoryRepository) {
     return args -> {
       if (inventoryRepository.count() == 0) {
-        Inventory item1 = Inventory.builder().skuCode("iphone_15").quantity(10).build();
+        Inventory item1 =
+            Inventory.builder()
+                .skuCode("iphone_15")
+                .name("iPhone 15")
+                .price(BigDecimal.valueOf(1200))
+                .emoji("📱")
+                .quantity(10)
+                .build();
 
         Inventory item2 =
             Inventory.builder()
                 .skuCode("pixel_8")
+                .name("Google Pixel 8")
+                .price(BigDecimal.valueOf(800))
+                .emoji("🤖")
                 .quantity(0) // Нет в наличии
                 .build();
 

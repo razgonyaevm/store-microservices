@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.example.inventory.dto.InventoryReduceRequest;
 import ru.example.inventory.dto.InventoryResponse;
+import ru.example.inventory.dto.ProductRequest;
+import ru.example.inventory.dto.ProductResponse;
 import ru.example.inventory.model.Inventory;
 import ru.example.inventory.repository.InventoryRepository;
 
@@ -30,6 +32,87 @@ public class InventoryService {
                                 inventory.getQuantity()))
                     .orElseGet(() -> new InventoryResponse(skuCode, false, 0)))
         .toList();
+  }
+
+  // Получение всех товаров для витрины фронта
+  @Transactional(readOnly = true)
+  public List<ProductResponse> getAllProducts() {
+    return inventoryRepository.findAll().stream()
+        .map(
+            inventory ->
+                new ProductResponse(
+                    inventory.getId(),
+                    inventory.getSkuCode(),
+                    inventory.getName(),
+                    inventory.getPrice(),
+                    inventory.getQuantity(),
+                    inventory.getEmoji(),
+                    inventory.getQuantity() > 0))
+        .toList();
+  }
+
+  // Добавление нового товара на склад администратором
+  @Transactional
+  public ProductResponse createProduct(ProductRequest request) {
+    if (inventoryRepository.findBySkuCode(request.skuCode()).isPresent()) {
+      throw new IllegalArgumentException(
+          "Product with SKU " + request.skuCode() + " already exists");
+    }
+
+    Inventory inventory =
+        Inventory.builder()
+            .skuCode(request.skuCode())
+            .name(request.name())
+            .price(request.price())
+            .quantity(request.quantity())
+            .emoji(request.emoji())
+            .build();
+
+    inventoryRepository.save(inventory);
+
+    return new ProductResponse(
+        inventory.getId(),
+        inventory.getSkuCode(),
+        inventory.getName(),
+        inventory.getPrice(),
+        inventory.getQuantity(),
+        inventory.getEmoji(),
+        inventory.getQuantity() > 0);
+  }
+
+  // Обновление параметров товара
+  @Transactional
+  public ProductResponse updateProduct(Long id, ProductRequest request) {
+    Inventory inventory =
+        inventoryRepository
+            .findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Product not found with id: " + id));
+
+    inventory.setSkuCode(request.skuCode());
+    inventory.setName(request.name());
+    inventory.setPrice(request.price());
+    inventory.setQuantity(request.quantity());
+    inventory.setEmoji(request.emoji());
+
+    inventoryRepository.save(inventory);
+
+    return new ProductResponse(
+        inventory.getId(),
+        inventory.getSkuCode(),
+        inventory.getName(),
+        inventory.getPrice(),
+        inventory.getQuantity(),
+        inventory.getEmoji(),
+        inventory.getQuantity() > 0);
+  }
+
+  // Удаление товара
+  @Transactional
+  public void deleteProduct(Long id) {
+    if (!inventoryRepository.existsById(id)) {
+      throw new IllegalArgumentException("Product not found with id: " + id);
+    }
+    inventoryRepository.deleteById(id);
   }
 
   @Transactional

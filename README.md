@@ -1,7 +1,8 @@
 # Microservice Tech Store
 
 Высоко нагруженное отказоустойчивое Full-Stack приложение для заказа техники, построенное на базе микросервисной
-архитектуры с использованием **Spring Boot 3**, **Spring Cloud**, **Apache Kafka**, **Redis**, **PostgreSQL** и **Vue 3**.
+архитектуры с использованием **Spring Boot 3**, **Spring Cloud**, **Apache Kafka**, **Redis**, **PostgreSQL** и **Vue 3
+**.
 
 Проект разработан с учетом современных паттернов проектирования распределенных систем, снабжен сквозным мониторингом,
 покрыт интеграционными тестами с использованием **Testcontainers** и интегрирован в автоматический пайплайн **CI/CD** на
@@ -46,16 +47,16 @@
 
 ## Технологический стек
 
-| Направление                    | Технологии                                                                                          |
-|:-------------------------------|:----------------------------------------------------------------------------------------------------|
-| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)   |
-| **Фронтенд**                   | Vue 3 (Composition API), Vite, Axios, HTML5/CSS3 (Grid, Flexbox, Scoped CSS)                        |
-| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование                                        |
-| **Базы данных**                | PostgreSQL 15, Redis 7 (In-Memory кэш), Схема "Database per Service"                                |
-| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                       |
-| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                  |
-| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                        |
-| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry) |
+| Направление                    | Технологии                                                                                                |
+|:-------------------------------|:----------------------------------------------------------------------------------------------------------|
+| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)         |
+| **Фронтенд**                   | Vue 3 (Composition API), Vite, Axios, HTML5/CSS3 (Grid, Flexbox, Сплит SFC на App.vue / App.js / App.css) |
+| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование, Role-Based Access Control (RBAC)            |
+| **Базы данных**                | PostgreSQL 15, Redis 7 (In-Memory кэш), Схема "Database per Service"                                      |
+| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                             |
+| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                        |
+| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                              |
+| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry)       |
 
 ---
 
@@ -66,13 +67,14 @@
 1. **`discovery-server` (:8761):** Реестр микросервисов (Netflix Eureka Server), обеспечивающий динамическое обнаружение
    сервисов (Service Discovery).
 2. **`api-gateway` (:8080):** Единая точка входа в систему (Spring Cloud Gateway). Реализует глобальный CORS,
-   динамическую маршрутизацию и централизованную безопасность (**Edge Security**).
+   динамическую маршрутизацию и централизованную безопасность (**Edge Security** и **RBAC**).
 3. **`user-service` (:8084):** Сервис управления пользователями. Отвечает за регистрацию (BCrypt кодирование) и
    беспроводную (Stateless) авторизацию с генерацией JWT-токенов.
 4. **`cart-service` (:8085):** Сервис корзины товаров на базе **NoSQL Redis**. Реализует паттерн временного
    резервирования складских остатков при добавлении товара в корзину.
-5. **`inventory-service` (:8082):** Складской сервис. Управляет остатками товаров в PostgreSQL, обрабатывает синхронные
-   запросы на проверку наличия, списание и возврат товаров.
+5. **`inventory-service` (:8082):** Складской сервис и каталог товаров. Управляет каталогом и остатками товаров в
+   PostgreSQL, обрабатывает синхронные запросы на проверку наличия, списание, возврат и полное админское CRUD-управление
+   товарами
 6. **`order-service` (:8081):** Сервис заказов. Сохраняет заказы в изолированную базу PostgreSQL. Интегрирован с Kafka
    для отправки асинхронных уведомлений.
 7. **`notification-service` (:8083):** Сервис уведомлений. Асинхронно считывает события `OrderPlacedEvent` из Kafka и
@@ -86,12 +88,19 @@
 
 * **Database per Service:** Каждому микросервису принадлежит своя изолированная база данных (PostgreSQL у User, Order,
   Inventory; Redis у Cart). Сервисы не имеют прямого доступа к чужим БД.
-* **Edge Security (Безопасность на шлюзе):** Авторизация проверяется один раз на шлюзе `api-gateway`. При валидности
-  JWT-токена шлюз извлекает имя пользователя и пробрасывает его дальше downstream-сервисам через HTTP-заголовок
-  `X-User-Name`.
+* **Edge Security & RBAC (Безопасность на шлюзе):** Авторизация проверяется один раз на шлюзе `api-gateway`. Шлюз
+  декларативно разграничивает доступ к маршрутам: обычный каталог доступен без авторизации, корзина и баланс требуют
+  роли `USER`/`ADMIN`, а добавление и изменение товаров в `inventory-service` разрешено только для роли `ADMIN`
+  (возвращается `403 Forbidden` при нарушении).
+* **Header Propagation (Проброс заголовков):** Шлюз извлекает `username` и `roles` из JWT-токена и автоматически
+  пробрасывает их downstream-микросервисам в HTTP-заголовках `X-User-Name` и `X-User-Roles`.
 * **Compensating Transaction (Компенсирующая транзакция):** Реализован надежный механизм отмены резервирования. Если
   пользователь очищает корзину - сервис корзины посылает компенсирующий запрос на склад, и зарезервированные товары
   мгновенно возвращаются «на полку».
+* **Транзакционная система оплаты (Saga):** При покупке `order-service` производит списание средств с баланса
+  пользователя в `user-service`. Если у пользователя недостаточно средств - `user-service` выбрасывает ошибку
+  `400 Bad Request`, транзакция создания заказа откатывается, а корзина в Redis остается заполненной
+  (покупка не совершается).
 * **Event-Driven Architecture (Событийная архитектура):** Оформление заказа и отправка уведомлений полностью развязаны
   во времени с помощью брокера сообщений Kafka. Сбой в сервисе уведомлений не блокирует процесс создания заказов.
 * **Distributed Tracing (Распределенная трассировка):** Благодаря Micrometer и Zipkin, каждому HTTP-запросу

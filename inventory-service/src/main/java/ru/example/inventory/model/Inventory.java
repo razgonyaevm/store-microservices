@@ -1,6 +1,7 @@
 package ru.example.inventory.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import lombok.*;
 
 @Entity
@@ -19,4 +20,13 @@ public class Inventory {
   private String skuCode; // Уникальный артикул товара (например, "iphone_15")
 
   private Integer quantity; // Количество на складе
+
+  @Column(nullable = false)
+  private String name;
+
+  @Column(nullable = false)
+  private BigDecimal price;
+
+  @Column(nullable = false)
+  private String emoji;
 }
