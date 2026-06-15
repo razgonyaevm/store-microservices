@@ -29,14 +29,8 @@ jobs:
       - name: Check Code Formatting
         run: mvn fmt:check
 
-      - name: Compile and Package All Modules
-        run: mvn -B clean package -DskipTests
-
-      - name: Run Integration Tests
-        run: mvn -B test -pl inventory-service,cart-service,user-service,order-service,notification-service,api-gateway
-
-      - name: Generate Aggregate JaCoCo Report
-        run: mvn -B verify -pl coverage-report
+      - name: Build, Test and Generate Coverage Report
+        run: mvn -B clean verify
 
       - name: Generate JaCoCo Badge
         uses: cicirello/jacoco-badge-generator@v2
