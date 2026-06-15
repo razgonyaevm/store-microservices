@@ -116,6 +116,13 @@ public class AuthenticationFilter
             .header("X-User-Name", username)
             .retrieve()
             .bodyToMono(UserResponse.class)
+            .onErrorResume(
+                err -> {
+                  System.err.println("WebClient verification failed: " + err.getMessage());
+                  return Mono.error(
+                      new ResponseStatusException(
+                          HttpStatus.FORBIDDEN, "Access denied: session invalid"));
+                })
             .flatMap(
                 userResponse -> {
                   String liveRole = userResponse.role();
@@ -141,18 +148,6 @@ public class AuthenticationFilter
 
                   // Если пользователь существует и роли верны, то пропускаем запрос
                   return chain.filter(exchange.mutate().request(modifiedRequest).build());
-                })
-            .onErrorResume(
-                err -> {
-                  // Если пользователь удален, user-service вернет ошибку. WebClient выбросит
-                  // исключение
-                  // перехватываем его и возвращаем 403 Forbidden, это вызовет авто логаут на фронте
-                  System.err.println(
-                      "WebClient verification failed (User deleted or role changed): "
-                          + err.getMessage());
-                  return Mono.error(
-                      new ResponseStatusException(
-                          HttpStatus.FORBIDDEN, "Access denied: session invalid"));
                 });
       } catch (ResponseStatusException ex) {
         throw ex;

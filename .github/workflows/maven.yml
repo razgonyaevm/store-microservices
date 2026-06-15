@@ -2,12 +2,12 @@ name: Java CI/CD Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -33,7 +33,27 @@ jobs:
         run: mvn -B clean package -DskipTests
 
       - name: Run Integration Tests
-        run: mvn -B test -pl inventory-service,cart-service,user-service
+        run: mvn -B test -pl inventory-service,cart-service,user-service,order-service,notification-service,api-gateway
+
+      - name: Generate Aggregate JaCoCo Report
+        run: mvn -B verify -pl coverage-report
+
+      - name: Generate JaCoCo Badge
+        uses: cicirello/jacoco-badge-generator@v2
+        with:
+          jacoco-csv-file: coverage-report/target/site/jacoco-aggregate/jacoco.csv
+          badges-directory: .github/badges
+          generate-branches-badge: false
+
+      - name: Commit and Push Badges
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .github/badges/*.svg
+          git commit -m "ci: update jacoco coverage badges [skip ci]" || echo "No changes to commit"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
     runs-on: ubuntu-latest
