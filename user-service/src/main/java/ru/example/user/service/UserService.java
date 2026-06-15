@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import ru.example.user.client.CartClient;
 import ru.example.user.dto.AuthRequest;
 import ru.example.user.dto.RegisterRequest;
 import ru.example.user.dto.UserResponse;
@@ -23,6 +24,7 @@ public class UserService {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
+  private final CartClient cartClient;
 
   // Внедряем имя суперпользователя для проверок безопасности
   @Value("${app.admin.username}")
@@ -159,6 +161,13 @@ public class UserService {
 
     if (adminUsername.equals(user.getUsername())) {
       throw new IllegalArgumentException("Deleting the root ADMIN account is forbidden!");
+    }
+
+    try {
+      cartClient.clearCartAdmin(user.getUsername());
+    } catch (Exception e) {
+      System.err.println(
+          "Failed to clear cart for deleted user '" + user.getUsername() + "': " + e.getMessage());
     }
 
     // Предотвращаем самоудаление

@@ -76,7 +76,7 @@ public class ApiGatewayApplicationTest {
     Mockito.when(webClient.get()).thenReturn(requestHeadersUriSpec);
     Mockito.when(requestHeadersUriSpec.uri(Mockito.anyString())).thenReturn(requestHeadersSpec);
 
-    // ТОЧНОЕ РАЗДЕЛЕНИЕ: сопоставляем вызовы по имени пользователя в заголовке X-User-Name
+    // Сопоставляем вызовы по имени пользователя в заголовке X-User-Name
     Mockito.when(
             requestHeadersSpec.header(
                 Mockito.eq("X-User-Name"), Mockito.eq(new String[] {"user1"})))
@@ -99,18 +99,16 @@ public class ApiGatewayApplicationTest {
         .thenReturn(
             Mono.just(new UserResponse(1L, "admin1", "a@mail.com", "ADMIN", BigDecimal.TEN)));
 
-    // --- ВЫПОЛНЕНИЕ ПРОВЕРОК ---
-
-    // 1. Публичный эндпоинт входа
+    // Публичный эндпоинт входа
     webTestClient.post().uri("/api/user/login").exchange().expectStatus().is5xxServerError();
 
-    // 2. Блокировка без токена
+    // Блокировка без токена
     webTestClient.get().uri("/api/cart").exchange().expectStatus().isUnauthorized();
 
     // Генерируем токен обычного пользователя USER
     String userToken = generateTestToken("user1", "USER");
 
-    // 3. Запрос под USER блокируется шлюзом (403)
+    // Запрос под USER блокируется шлюзом (403)
     webTestClient
         .put()
         .uri("/api/inventory/reduce")
@@ -122,7 +120,7 @@ public class ApiGatewayApplicationTest {
     // Генерируем токен администратора ADMIN
     String adminToken = generateTestToken("admin1", "ADMIN");
 
-    // 4. Запрос под ADMIN успешно проходит шлюз (ожидаем 5xx из-за выключенного бэкенда склада)
+    // Запрос под ADMIN успешно проходит шлюз (ожидаем 5xx из-за выключенного бэкенда склада)
     webTestClient
         .put()
         .uri("/api/inventory/reduce")

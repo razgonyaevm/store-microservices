@@ -48,4 +48,10 @@ public class CartController {
       @RequestHeader("X-User-Name") String username, @RequestParam String skuCode) {
     return cartService.removeOneFromCart(username, skuCode);
   }
+
+  @PostMapping("/clear-admin")
+  @ResponseStatus(HttpStatus.OK)
+  public void clearCartAdmin(@RequestParam String username) {
+    cartService.clearCart(username);
+  }
 }

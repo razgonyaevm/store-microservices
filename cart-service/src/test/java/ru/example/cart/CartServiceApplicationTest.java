@@ -114,6 +114,35 @@ public class CartServiceApplicationTest {
   }
 
   @Test
+  void shouldClearCartAndReleaseStock() throws Exception {
+    String username = "test_user_clear";
+    String skuCode = "iphone_15";
+    BigDecimal price = BigDecimal.valueOf(1200);
+
+    // Наполняем корзину
+    cartService.addToCart(username, skuCode, price);
+    Assertions.assertNotNull(redisTemplate.opsForValue().get("cart:" + username));
+
+    // Вызываем метод очистки корзины (срабатывает компенсирующая транзакция)
+    mockMvc
+        .perform(MockMvcRequestBuilders.post("/api/cart/clear-admin").param("username", username))
+        .andExpect(status().isOk());
+
+    // Убеждаемся, что корзина полностью удалена из Redis кэша
+    Assertions.assertNull(redisTemplate.opsForValue().get("cart:" + username));
+
+    // С помощью Mockito проверяем, что Feign-клиент склада был вызван ровно 1 раз
+    // и ему были переданы параметры возвращаемого товара (skuCode и количество)
+    Mockito.verify(inventoryClient, Mockito.times(1))
+        .increaseStock(
+            Mockito.argThat(
+                list ->
+                    list.size() == 1
+                        && list.get(0).skuCode().equals(skuCode)
+                        && list.get(0).quantity() == 1));
+  }
+
+  @Test
   void testMainMethod() {
     // Динамически переопределяем свойства подключения к БД, указывая на наш тест-контейнер в Docker
     System.setProperty("spring.data.redis.host", redisContainer.getHost());
