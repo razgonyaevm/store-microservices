@@ -35,9 +35,9 @@ spring:
           uri: lb://inventory-service
           predicates:
             - Path=/api/inventory/**
-            - Method=POST,PUT,DELETE # Блокируем POST, PUT, DELETE запросы
+            - Method=POST,PUT,DELETE,OPTIONS
           filters:
-            - AuthenticationFilter=ADMIN # Пропустит только пользователей с ролью ADMIN
+            - AuthenticationFilter=OWNER
 
         # Маршрут для order-service
         - id: order-service
@@ -82,7 +82,7 @@ spring:
           uri: lb://user-service
           predicates:
             - Path=/api/user/*
-            - Method=DELETE
+            - Method=DELETE,OPTIONS
           filters:
             - AuthenticationFilter=ADMIN
 
