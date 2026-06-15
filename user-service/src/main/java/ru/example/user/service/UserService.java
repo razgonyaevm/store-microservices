@@ -3,6 +3,7 @@ package ru.example.user.service;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,10 @@ public class UserService {
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
 
+  // Внедряем имя суперпользователя для проверок безопасности
+  @Value("${app.admin.username}")
+  private String adminUsername;
+
   public String register(RegisterRequest registerRequest) {
     if (userRepository.findByUsername(registerRequest.username()).isPresent()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username already exists");
@@ -33,7 +38,15 @@ public class UserService {
     if (registerRequest.role() != null) {
       try {
         userRole = Role.valueOf(registerRequest.role().toUpperCase());
-      } catch (IllegalArgumentException ignored) {
+
+        if (userRole == Role.ADMIN) {
+          throw new IllegalArgumentException("Registration with ADMIN role is forbidden!");
+        }
+      } catch (IllegalArgumentException e) {
+        if (e.getMessage() != null && e.getMessage().contains("forbidden")) {
+          throw e;
+        }
+        userRole = Role.USER;
       }
     }
 
@@ -115,11 +128,23 @@ public class UserService {
             .findById(id)
             .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
 
+    if (adminUsername.equals(user.getUsername())) {
+      throw new IllegalArgumentException("Modifying the root ADMIN account is forbidden!");
+    }
+
     try {
       Role newRole = Role.valueOf(roleStr.toUpperCase());
+
+      if (newRole == Role.ADMIN) {
+        throw new IllegalArgumentException("Promotion to ADMIN role is forbidden!");
+      }
+
       user.setRole(newRole);
       userRepository.save(user);
     } catch (IllegalArgumentException e) {
+      if (e.getMessage() != null && e.getMessage().contains("forbidden")) {
+        throw e;
+      }
       throw new IllegalArgumentException("Invalid role name: " + roleStr);
     }
   }
@@ -131,6 +156,10 @@ public class UserService {
         userRepository
             .findById(id)
             .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+    if (adminUsername.equals(user.getUsername())) {
+      throw new IllegalArgumentException("Deleting the root ADMIN account is forbidden!");
+    }
 
     // Предотвращаем самоудаление
     userRepository.delete(user);

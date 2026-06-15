@@ -1,20 +1,30 @@
 <script setup>
-import {useRouter} from 'vue-router'
-import {currentUser, token, isAdmin, validateSession} from './store/auth'
-import {onMounted} from "vue";
+import {useRoute, useRouter} from 'vue-router'
+import {currentUser, token, isAdmin, isOwner, checkUserRoles, validateSession} from './store/auth'
+import {onMounted, watch} from "vue";
 
 const router = useRouter()
+const route = useRoute()
 
 const handleLogout = () => {
   token.value = null
   currentUser.value = null
   isAdmin.value = false
+  isOwner.value = false
   localStorage.removeItem('token')
   localStorage.removeItem('username')
   router.push('/') // Возвращаем пользователя на витрину
 }
 
+watch(
+    () => route.path,
+    () => {
+      checkUserRoles()
+    }
+)
+
 onMounted(async () => {
+  checkUserRoles()
   await validateSession()
 })
 </script>
@@ -31,7 +41,8 @@ onMounted(async () => {
           {{ currentUser ? `👤 Profile (${currentUser})` : '🔑 Sign In / Register' }}
         </router-link>
 
-        <router-link v-if="isAdmin" to="/admin" class="nav-link admin-link" active-class="active">
+        <!-- Ссылка доступна и для OWNER и для ADMIN -->
+        <router-link v-if="isOwner" to="/admin" class="nav-link admin-link" active-class="active">
           ⚙️ Admin Panel
         </router-link>
 

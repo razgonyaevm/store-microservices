@@ -118,12 +118,24 @@ public class AuthenticationFilter
             .bodyToMono(UserResponse.class)
             .flatMap(
                 userResponse -> {
+                  String liveRole = userResponse.role();
+
                   // Если запрашивается админский маршрут, а роль пользователя изменилась
                   if (config.getRole() != null) {
-                    if (!userResponse.role().equals(config.getRole())) {
-                      return Mono.error(
-                          new ResponseStatusException(
-                              HttpStatus.FORBIDDEN, "Access denied: role changed"));
+                    if ("ADMIN".equals(config.getRole())) {
+                      // Если роут требует строго ADMIN
+                      if (!"ADMIN".equals(liveRole)) {
+                        return Mono.error(
+                            new ResponseStatusException(
+                                HttpStatus.FORBIDDEN, "Access denied: ADMIN only"));
+                      }
+                    } else if ("OWNER".equals(config.getRole())) {
+                      // Если роут требует OWNER, но ADMIN также должен иметь доступ
+                      if (!"OWNER".equals(liveRole) && !"ADMIN".equals(liveRole)) {
+                        return Mono.error(
+                            new ResponseStatusException(
+                                HttpStatus.FORBIDDEN, "Access denied: OWNER or ADMIN only"));
+                      }
                     }
                   }
 

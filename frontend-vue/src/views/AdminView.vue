@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import {ref, onMounted} from 'vue'
+import {isAdmin, isOwner} from '../store/auth'
 import axios from 'axios'
 
 const API_BASE_URL = 'http://localhost:8080/api'
@@ -35,7 +36,7 @@ const editPrice = ref(0)
 const editQty = ref(0)
 const editEmoji = ref('')
 
-const toast = ref({ show: false, message: '', type: 'success' })
+const toast = ref({show: false, message: '', type: 'success'})
 
 // Загрузка товаров
 const fetchProducts = async () => {
@@ -58,8 +59,8 @@ const fetchProducts = async () => {
 const fetchUsers = async () => {
   if (!token.value) return
   try {
-    const headers = { Authorization: `Bearer ${token.value}` }
-    const response = await axios.get(`${API_BASE_URL}/user/all`, { headers })
+    const headers = {Authorization: `Bearer ${token.value}`}
+    const response = await axios.get(`${API_BASE_URL}/user/all`, {headers})
     users.value = response.data
   } catch (error) {
     console.error('Failed to fetch users:', error)
@@ -72,9 +73,9 @@ const changeUserRole = async (userId, newRole) => {
   if (!token.value) return
   userActionLoading.value = true
   try {
-    const headers = { Authorization: `Bearer ${token.value}` }
+    const headers = {Authorization: `Bearer ${token.value}`}
     await axios.put(`${API_BASE_URL}/user/${userId}/role`, null, {
-      params: { role: newRole },
+      params: {role: newRole},
       headers
     })
     showToast(`Successfully updated user role to ${newRole}!`, 'success')
@@ -97,8 +98,8 @@ const deleteUser = async (user) => {
   if (!confirm(`Are you sure you want to delete user "${user.username}" and all their data?`)) return
   userActionLoading.value = true
   try {
-    const headers = { Authorization: `Bearer ${token.value}` }
-    await axios.delete(`${API_BASE_URL}/user/${user.id}`, { headers })
+    const headers = {Authorization: `Bearer ${token.value}`}
+    await axios.delete(`${API_BASE_URL}/user/${user.id}`, {headers})
     showToast(`User "${user.username}" successfully deleted`, 'success')
     await fetchUsers()
   } catch (error) {
@@ -113,9 +114,9 @@ const addStockToInventory = async () => {
   if (!token.value) return
   adminLoading.value = true
   try {
-    const headers = { Authorization: `Bearer ${token.value}` }
-    const payload = [{ skuCode: adminSkuInput.value, quantity: parseInt(adminQtyInput.value) }]
-    await axios.put(`${API_BASE_URL}/inventory/increase`, payload, { headers })
+    const headers = {Authorization: `Bearer ${token.value}`}
+    const payload = [{skuCode: adminSkuInput.value, quantity: parseInt(adminQtyInput.value)}]
+    await axios.put(`${API_BASE_URL}/inventory/increase`, payload, {headers})
     showToast('Stock successfully replenished!', 'success')
     await fetchProducts()
   } catch (error) {
@@ -130,7 +131,7 @@ const createNewProduct = async () => {
   if (!token.value) return
   adminLoading.value = true
   try {
-    const headers = { Authorization: `Bearer ${token.value}` }
+    const headers = {Authorization: `Bearer ${token.value}`}
     const payload = {
       skuCode: newSku.value,
       name: newName.value,
@@ -138,7 +139,7 @@ const createNewProduct = async () => {
       quantity: parseInt(newQty.value),
       emoji: newEmoji.value
     }
-    await axios.post(`${API_BASE_URL}/inventory/products`, payload, { headers })
+    await axios.post(`${API_BASE_URL}/inventory/products`, payload, {headers})
     showToast(`Product ${newName.value} created successfully!`, 'success')
     newSku.value = ''
     newName.value = ''
@@ -170,7 +171,7 @@ const updateProductDetails = async () => {
   if (!token.value || !editProductId.value) return
   adminLoading.value = true
   try {
-    const headers = { Authorization: `Bearer ${token.value}` }
+    const headers = {Authorization: `Bearer ${token.value}`}
     const payload = {
       skuCode: editSku.value,
       name: editName.value,
@@ -178,7 +179,7 @@ const updateProductDetails = async () => {
       quantity: parseInt(editQty.value),
       emoji: editEmoji.value
     }
-    await axios.put(`${API_BASE_URL}/inventory/products/${editProductId.value}`, payload, { headers })
+    await axios.put(`${API_BASE_URL}/inventory/products/${editProductId.value}`, payload, {headers})
     showToast('Product updated successfully!', 'success')
     editProductId.value = ''
     await fetchProducts()
@@ -194,8 +195,8 @@ const handleDeleteProduct = async (productId) => {
   if (!token.value) return
   if (!confirm('Delete this product from DB?')) return
   try {
-    const headers = { Authorization: `Bearer ${token.value}` }
-    await axios.delete(`${API_BASE_URL}/inventory/products/${productId}`, { headers })
+    const headers = {Authorization: `Bearer ${token.value}`}
+    await axios.delete(`${API_BASE_URL}/inventory/products/${productId}`, {headers})
     showToast('Product deleted successfully!', 'success')
     await fetchProducts()
   } catch (error) {
@@ -207,21 +208,28 @@ const showToast = (message, type) => {
   toast.value.message = message
   toast.value.type = type
   toast.value.show = true
-  setTimeout(() => { toast.value.show = false }, 4000)
+  setTimeout(() => {
+    toast.value.show = false
+  }, 4000)
 }
 
 onMounted(() => {
   fetchProducts()
-  fetchUsers() // Загружаем список пользователей из бд
+
+  // Запрашиваем список пользователей в бд, только если залогинен суперюзер
+  if (isAdmin.value) {
+    fetchUsers()
+  }
 })
 </script>
 
 <template>
   <div class="view-container" style="width: 100%; max-width: 800px;">
 
-    <!-- Переключатель вкладок админки -->
-    <div class="auth-toggle" style="margin-bottom: 2rem; justify-content: center;">
-      <button @click="adminTab = 'inventory'" :class="{ active: adminTab === 'inventory' }">📦 Inventory & Catalog</button>
+    <!-- Переключатель вкладок админки (показывается только сисадмину) -->
+    <div v-if="isAdmin" class="auth-toggle" style="margin-bottom: 2rem; justify-content: center;">
+      <button @click="adminTab = 'inventory'" :class="{ active: adminTab === 'inventory' }">📦 Inventory & Catalog
+      </button>
       <button @click="adminTab = 'users'" :class="{ active: adminTab === 'users' }">👥 User Management</button>
     </div>
 
@@ -244,10 +252,11 @@ onMounted(() => {
             </div>
             <div class="form-group">
               <label>Quantity to Add</label>
-              <input v-model="adminQtyInput" type="number" min="1" class="admin-input-full" />
+              <input v-model="adminQtyInput" type="number" min="1" class="admin-input-full"/>
             </div>
             <div class="form-group action-group">
-              <button @click="addStockToInventory" :disabled="adminLoading" class="admin-submit-button-full">Add Stock</button>
+              <button @click="addStockToInventory" :disabled="adminLoading" class="admin-submit-button-full">Add Stock
+              </button>
             </div>
           </div>
         </div>
@@ -258,26 +267,28 @@ onMounted(() => {
           <div class="admin-grid-form">
             <div class="form-group">
               <label>Product Name</label>
-              <input v-model="newName" type="text" placeholder="e.g. iPad Pro" class="admin-input-full" />
+              <input v-model="newName" type="text" placeholder="e.g. iPad Pro" class="admin-input-full"/>
             </div>
             <div class="form-group">
               <label>SKU Code</label>
-              <input v-model="newSku" type="text" placeholder="e.g. ipad_pro" class="admin-input-full" />
+              <input v-model="newSku" type="text" placeholder="e.g. ipad_pro" class="admin-input-full"/>
             </div>
             <div class="form-group">
               <label>Price ($)</label>
-              <input v-model="newPrice" type="number" min="1" class="admin-input-full" />
+              <input v-model="newPrice" type="number" min="1" class="admin-input-full"/>
             </div>
             <div class="form-group">
               <label>Initial Qty</label>
-              <input v-model="newQty" type="number" min="1" class="admin-input-full" />
+              <input v-model="newQty" type="number" min="1" class="admin-input-full"/>
             </div>
             <div class="form-group">
               <label>Emoji</label>
-              <input v-model="newEmoji" type="text" class="admin-input-full" style="text-align: center;" />
+              <input v-model="newEmoji" type="text" class="admin-input-full" style="text-align: center;"/>
             </div>
             <div class="form-group action-group">
-              <button @click="createNewProduct" :disabled="adminLoading" class="admin-submit-button-full">Create Product</button>
+              <button @click="createNewProduct" :disabled="adminLoading" class="admin-submit-button-full">Create
+                Product
+              </button>
             </div>
           </div>
         </div>
@@ -296,26 +307,28 @@ onMounted(() => {
             <template v-if="editProductId">
               <div class="form-group">
                 <label>Name</label>
-                <input v-model="editName" type="text" class="admin-input-full" />
+                <input v-model="editName" type="text" class="admin-input-full"/>
               </div>
               <div class="form-group">
                 <label>SKU</label>
-                <input v-model="editSku" type="text" class="admin-input-full" />
+                <input v-model="editSku" type="text" class="admin-input-full"/>
               </div>
               <div class="form-group">
                 <label>Price ($)</label>
-                <input v-model="editPrice" type="number" min="1" class="admin-input-full" />
+                <input v-model="editPrice" type="number" min="1" class="admin-input-full"/>
               </div>
               <div class="form-group">
                 <label>Quantity</label>
-                <input v-model="editQty" type="number" min="0" class="admin-input-full" />
+                <input v-model="editQty" type="number" min="0" class="admin-input-full"/>
               </div>
               <div class="form-group">
                 <label>Emoji</label>
-                <input v-model="editEmoji" type="text" class="admin-input-full" style="text-align: center;" />
+                <input v-model="editEmoji" type="text" class="admin-input-full" style="text-align: center;"/>
               </div>
               <div class="form-group action-group">
-                <button @click="updateProductDetails" :disabled="adminLoading" class="admin-submit-button-full">Save Changes</button>
+                <button @click="updateProductDetails" :disabled="adminLoading" class="admin-submit-button-full">Save
+                  Changes
+                </button>
               </div>
             </template>
           </div>
@@ -341,7 +354,9 @@ onMounted(() => {
               <td><code>{{ product.skuCode }}</code></td>
               <td>${{ product.price }}</td>
               <td>
-                <button @click="handleDeleteProduct(product.id)" class="logout-button" style="padding: 0.3rem 0.7rem; font-size: 0.85rem;">Delete</button>
+                <button @click="handleDeleteProduct(product.id)" class="logout-button"
+                        style="padding: 0.3rem 0.7rem; font-size: 0.85rem;">Delete
+                </button>
               </td>
             </tr>
             </tbody>
@@ -372,41 +387,49 @@ onMounted(() => {
             <td><strong>{{ user.username }}</strong></td>
             <td>{{ user.email || 'n/a' }}</td>
             <td>
-                <span class="admin-tag" :style="{ background: user.role === 'ADMIN' ? '#f1c40f' : '#b0bec5' }">
+                <span class="admin-tag"
+                      :style="{ background: user.role === 'ADMIN' ? '#f1c40f' : (user.role === 'OWNER' ? '#3498db' :
+                       '#b0bec5'), color: user.role === 'USER' ? '#2c3e50' : 'white' }">
                   {{ user.role }}
                 </span>
             </td>
             <td style="color: #2e7d32; font-weight: bold;">${{ user.balance.toFixed(2) }}</td>
-            <td style="display: flex; gap: 0.3rem;">
-              <!-- Кнопки управления ролью пользователя -->
-              <button
-                  v-if="user.role === 'USER'"
-                  @click="changeUserRole(user.id, 'ADMIN')"
-                  :disabled="userActionLoading"
-                  class="checkout-button"
-                  style="padding: 0.3rem 0.6rem; font-size: 0.8rem;"
-              >
-                Promote to Admin
-              </button>
-              <button
-                  v-else
-                  @click="changeUserRole(user.id, 'USER')"
-                  :disabled="userActionLoading"
-                  class="clear-button"
-                  style="padding: 0.3rem 0.6rem; font-size: 0.8rem;"
-              >
-                Demote to User
-              </button>
+            <td>
+              <div v-if="user.role !== 'ADMIN'" style="display: flex; gap: 0.3rem;">
+                <!-- Кнопки управления ролью пользователя -->
+                <button
+                    v-if="user.role === 'USER'"
+                    @click="changeUserRole(user.id, 'OWNER')"
+                    :disabled="userActionLoading"
+                    class="checkout-button"
+                    style="padding: 0.3rem 0.6rem; font-size: 0.8rem; background: #3498db;"
+                >
+                  Promote to Owner
+                </button>
+                <button
+                    v-else
+                    @click="changeUserRole(user.id, 'USER')"
+                    :disabled="userActionLoading"
+                    class="clear-button"
+                    style="padding: 0.3rem 0.6rem; font-size: 0.8rem;"
+                >
+                  Demote to User
+                </button>
 
-              <!-- Кнопка удаления пользователя -->
-              <button
-                  @click="deleteUser(user)"
-                  :disabled="userActionLoading"
-                  class="logout-button"
-                  style="padding: 0.3rem 0.6rem; font-size: 0.8rem;"
-              >
-                Delete
-              </button>
+                <!-- Кнопка удаления пользователя -->
+                <button
+                    @click="deleteUser(user)"
+                    :disabled="userActionLoading"
+                    class="logout-button"
+                    style="padding: 0.3rem 0.6rem; font-size: 0.8rem;"
+                >
+                  Delete
+                </button>
+              </div>
+              <!-- Заглушка вместо кнопок для Root-аккаунта -->
+              <div v-else>
+                <span style="color: #95a5a6; font-style: italic; font-size: 0.85rem;">System Root Account</span>
+              </div>
             </td>
           </tr>
           </tbody>

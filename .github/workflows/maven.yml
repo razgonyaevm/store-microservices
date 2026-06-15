@@ -33,7 +33,7 @@ jobs:
         run: mvn -B clean package -DskipTests
 
       - name: Run Integration Tests
-        run: mvn -B test -pl inventory-service,cart-service
+        run: mvn -B test -pl inventory-service,cart-service,user-service
 
   publish:
     runs-on: ubuntu-latest

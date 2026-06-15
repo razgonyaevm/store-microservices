@@ -6,6 +6,7 @@ const API_BASE_URL = 'http://localhost:8080/api'
 export const currentUser = ref(localStorage.getItem('username') || null)
 export const token = ref(localStorage.getItem('token') || null)
 export const isAdmin = ref(false)
+export const isOwner = ref(false)
 
 export const decodeJwt = (tokenStr) => {
     try {
@@ -20,7 +21,14 @@ export const decodeJwt = (tokenStr) => {
 export const checkUserRoles = () => {
     if (token.value) {
         const decoded = decodeJwt(token.value)
-        isAdmin.value = decoded && decoded.roles && decoded.roles.includes('ADMIN')
+        if (decoded && decoded.roles) {
+            isAdmin.value = decoded.roles.includes('ADMIN')
+            // ADMIN автоматически наследует права OWNER
+            isOwner.value = decoded.roles.includes('OWNER') || decoded.roles.includes('ADMIN')
+        } else {
+            isAdmin.value = false
+            isOwner.value = false
+        }
     } else {
         isAdmin.value = false
     }
@@ -43,6 +51,7 @@ export const validateSession = async () => {
             token.value = null
             currentUser.value = null
             isAdmin.value = false
+            isOwner.value = false
             localStorage.removeItem('token')
             localStorage.removeItem('username')
 
@@ -66,6 +75,7 @@ axios.interceptors.response.use(
             token.value = null
             currentUser.value = null
             isAdmin.value = false
+            isOwner.value = false
             localStorage.removeItem('token')
             localStorage.removeItem('username')
 

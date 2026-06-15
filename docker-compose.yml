@@ -166,6 +166,8 @@ services:
       - EUREKA_HOST=discovery-server
       - SPRING_CLOUD_COMPATIBILITY_VERIFIER_ENABLED=false
       - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
 
   cart-service:
     build: ./cart-service

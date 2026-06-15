@@ -220,7 +220,7 @@ onMounted(() => {
             <label>Select Your Role</label>
             <select v-model="roleInput" class="admin-select-full">
               <option value="USER">USER (Buyer)</option>
-              <option value="ADMIN">ADMIN (Store Manager)</option>
+              <option value="OWNER">OWNER (Store Owner)</option>
             </select>
           </div>
 
