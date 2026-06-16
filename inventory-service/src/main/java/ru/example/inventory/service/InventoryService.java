@@ -1,5 +1,6 @@
 package ru.example.inventory.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,14 @@ public class InventoryService {
           "Product with SKU " + request.skuCode() + " already exists");
     }
 
+    if (request.price().compareTo(BigDecimal.ZERO) <= 0) {
+      throw new IllegalArgumentException("Price must be greater than zero");
+    }
+
+    if (request.quantity() < 0) {
+      throw new IllegalArgumentException("Quantity cannot be negative");
+    }
+
     Inventory inventory =
         Inventory.builder()
             .skuCode(request.skuCode())
@@ -87,6 +96,14 @@ public class InventoryService {
         inventoryRepository
             .findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Product not found with id: " + id));
+
+    if (request.price().compareTo(BigDecimal.ZERO) <= 0) {
+      throw new IllegalArgumentException("Price must be greater than zero");
+    }
+
+    if (request.quantity() < 0) {
+      throw new IllegalArgumentException("Quantity cannot be negative");
+    }
 
     inventory.setSkuCode(request.skuCode());
     inventory.setName(request.name());

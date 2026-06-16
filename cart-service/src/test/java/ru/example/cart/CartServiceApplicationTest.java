@@ -3,7 +3,12 @@ package ru.example.cart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import feign.Request;
+import feign.Response;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -21,6 +26,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import ru.example.cart.client.InventoryClient;
 import ru.example.cart.client.OrderClient;
+import ru.example.cart.config.FeignErrorDecoder;
+import ru.example.cart.dto.Cart;
 import ru.example.cart.service.CartService;
 
 @SpringBootTest(
@@ -51,6 +58,70 @@ public class CartServiceApplicationTest {
   @MockBean private InventoryClient inventoryClient;
 
   @MockBean private OrderClient orderClient;
+
+  @Test
+  void shouldAddProductToCartAndSaveInRedis() {
+    String username = "test_user";
+    String skuCode = "iphone_15";
+    BigDecimal price = BigDecimal.valueOf(1200);
+
+    Cart cart = cartService.addToCart(username, skuCode, price);
+
+    Assertions.assertNotNull(cart);
+    Assertions.assertEquals(username, cart.getUsername());
+    Assertions.assertEquals(1, cart.getItems().size());
+    Assertions.assertEquals(skuCode, cart.getItems().get(0).getSkuCode());
+
+    Cart savedCart = (Cart) redisTemplate.opsForValue().get("cart:" + username);
+    Assertions.assertNotNull(savedCart);
+    Assertions.assertEquals(1, savedCart.getItems().size());
+  }
+
+  @Test
+  void shouldDecodeFeign400ToIllegalArgumentException() throws IOException {
+    FeignErrorDecoder decoder = new FeignErrorDecoder();
+
+    // Имитируем падение внешнего сервиса со статусом 400 Bad Request
+    Response response =
+        Response.builder()
+            .status(400)
+            .reason("Bad Request")
+            .request(
+                Request.create(
+                    Request.HttpMethod.GET,
+                    "/api/test",
+                    Collections.emptyMap(),
+                    null,
+                    StandardCharsets.UTF_8))
+            .body("Inventory quantity is negative!", StandardCharsets.UTF_8)
+            .build();
+
+    Exception exception = decoder.decode("methodKey", response);
+
+    // Проверяем, что FeignErrorDecoder успешно превратил ошибку 400 в IllegalArgumentException с
+    // текстом из тела ответа
+    Assertions.assertTrue(exception instanceof IllegalArgumentException);
+    Assertions.assertEquals("Inventory quantity is negative!", exception.getMessage());
+  }
+
+  @Test
+  void shouldReturn400WithErrorResponseOnIllegalArgumentException() throws Exception {
+    // Имитируем ситуацию, когда склад выкидывает ошибку
+    Mockito.doThrow(new IllegalArgumentException("Not enough stock on warehouse!"))
+        .when(inventoryClient)
+        .reduceStock(Mockito.anyList());
+
+    // Делаем POST-запрос добавления в корзину через MockMvc
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/api/cart/add")
+                .header("X-User-Name", "test_buyer")
+                .param("skuCode", "iphone_15")
+                .param("price", "1200"))
+        .andExpect(status().isBadRequest()) // Ожидаем 400 Bad Request
+        // Проверяем, что GlobalExceptionHandler вернул JSON-объект ErrorResponse с полем message
+        .andExpect(jsonPath("$.message").value("Not enough stock on warehouse!"));
+  }
 
   @Test
   void shouldPerformFullCartControllerFlow() throws Exception {

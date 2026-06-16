@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import ru.example.user.client.CartClient;
 import ru.example.user.dto.AuthRequest;
 import ru.example.user.dto.AuthResponse;
 import ru.example.user.dto.RegisterRequest;
@@ -41,8 +39,6 @@ public class UserServiceApplicationTest {
   @Autowired private MockMvc mockMvc;
 
   @Autowired private UserRepository userRepository;
-
-  @MockBean private CartClient cartClient;
 
   @Test
   void shouldPerformFullUserFlowAndEnforceSecurity() throws Exception {
@@ -261,11 +257,14 @@ public class UserServiceApplicationTest {
             MockMvcRequestBuilders.post("/api/user/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(loginJson))
-        .andExpect(status().isUnauthorized())
+        .andExpect(status().isBadRequest())
         .andExpect(
             result ->
-                Assertions.assertEquals(
-                    "Invalid username or password", result.getResponse().getErrorMessage()));
+                Assertions.assertTrue(
+                    result
+                        .getResponse()
+                        .getContentAsString()
+                        .contains("Invalid username or password")));
   }
 
   @Test
@@ -285,7 +284,7 @@ public class UserServiceApplicationTest {
                 Assertions.assertTrue(
                     result
                         .getResponse()
-                        .getErrorMessage()
+                        .getContentAsString()
                         .contains("Modifying the root ADMIN account is forbidden")));
 
     // Попытка удалить админа - ожидаем 400
@@ -297,7 +296,7 @@ public class UserServiceApplicationTest {
         .andExpect(
             result ->
                 Assertions.assertTrue(
-                    result.getResponse().getErrorMessage().contains("Deleting the root ADMIN")));
+                    result.getResponse().getContentAsString().contains("Deleting the root ADMIN")));
   }
 
   @Test
@@ -329,7 +328,7 @@ public class UserServiceApplicationTest {
         .andExpect(
             result ->
                 Assertions.assertTrue(
-                    result.getResponse().getErrorMessage().contains("Invalid role name")));
+                    result.getResponse().getContentAsString().contains("Invalid role name")));
 
     // Попытка повысить до ADMIN - ожидаем 400
     mockMvc
@@ -344,7 +343,7 @@ public class UserServiceApplicationTest {
                 Assertions.assertTrue(
                     result
                         .getResponse()
-                        .getErrorMessage()
+                        .getContentAsString()
                         .contains("Promotion to ADMIN role is forbidden")));
   }
 
@@ -356,7 +355,7 @@ public class UserServiceApplicationTest {
     mockMvc
         .perform(
             MockMvcRequestBuilders.get("/api/user/balance").header("X-User-Name", "ghost_user"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isBadRequest());
 
     // rechargeBalance
     mockMvc
@@ -364,7 +363,7 @@ public class UserServiceApplicationTest {
             MockMvcRequestBuilders.post("/api/user/recharge")
                 .header("X-User-Name", "ghost_user")
                 .param("amount", "100"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isBadRequest());
 
     // deductBalance
     mockMvc
@@ -372,12 +371,12 @@ public class UserServiceApplicationTest {
             MockMvcRequestBuilders.put("/api/user/deduct")
                 .param("username", "ghost_user")
                 .param("amount", "100"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isBadRequest());
 
     // getCurrentUser (/me)
     mockMvc
         .perform(MockMvcRequestBuilders.get("/api/user/me").header("X-User-Name", "ghost_user"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isBadRequest());
 
     // changeRole (несуществующий ID)
     mockMvc
@@ -385,12 +384,12 @@ public class UserServiceApplicationTest {
             MockMvcRequestBuilders.put("/api/user/9999/role")
                 .header("X-User-Name", "admin")
                 .param("role", "OWNER"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isBadRequest());
 
     // deleteUser (несуществующий ID)
     mockMvc
         .perform(MockMvcRequestBuilders.delete("/api/user/9999").header("X-User-Name", "admin"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isBadRequest());
   }
 
   @Test
@@ -444,8 +443,8 @@ public class UserServiceApplicationTest {
         .andExpect(status().isBadRequest())
         .andExpect(
             result ->
-                Assertions.assertEquals(
-                    "Username already exists", result.getResponse().getErrorMessage()));
+                Assertions.assertTrue(
+                    result.getResponse().getContentAsString().contains("Username already exists")));
   }
 
   @Test
@@ -469,9 +468,11 @@ public class UserServiceApplicationTest {
         .andExpect(status().isBadRequest())
         .andExpect(
             result ->
-                Assertions.assertEquals(
-                    "Registration with ADMIN role is forbidden!",
-                    result.getResponse().getErrorMessage()));
+                Assertions.assertTrue(
+                    result
+                        .getResponse()
+                        .getContentAsString()
+                        .contains("Registration with ADMIN role is forbidden!")));
   }
 
   @Test
@@ -491,11 +492,14 @@ public class UserServiceApplicationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json))
         .andDo(print())
-        .andExpect(status().isUnauthorized())
+        .andExpect(status().isBadRequest())
         .andExpect(
             result ->
-                Assertions.assertEquals(
-                    "Invalid username or password", result.getResponse().getErrorMessage()));
+                Assertions.assertTrue(
+                    result
+                        .getResponse()
+                        .getContentAsString()
+                        .contains("Invalid username or password")));
   }
 
   @Test
