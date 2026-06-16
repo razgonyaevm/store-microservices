@@ -171,6 +171,32 @@ class InventoryServiceApplicationTest {
   }
 
   @Test
+  void shouldFailReductionIfInsufficientQuantity() throws Exception {
+    // Пытаемся списать 100 штук iPhone 15 (на складе всего 10)
+    String reduceJson =
+        """
+                [
+                  {
+                    "skuCode": "iphone_15",
+                    "quantity": 100
+                  }
+                ]
+                """;
+
+    // Ожидаем 400 Bad Request с сообщением о нехватке товара
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.put("/api/inventory/reduce")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(reduceJson))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            result ->
+                Assertions.assertTrue(
+                    result.getResponse().getContentAsString().contains("Not enough stock")));
+  }
+
+  @Test
   void testMainMethod() {
     // Динамически переопределяем свойства подключения к БД, указывая на наш тест-контейнер в Docker
     System.setProperty("spring.datasource.url", postgresContainer.getJdbcUrl());

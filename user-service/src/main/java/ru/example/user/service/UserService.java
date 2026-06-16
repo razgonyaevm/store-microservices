@@ -42,7 +42,8 @@ public class UserService {
         userRole = Role.valueOf(registerRequest.role().toUpperCase());
 
         if (userRole == Role.ADMIN) {
-          throw new IllegalArgumentException("Registration with ADMIN role is forbidden!");
+          throw new ResponseStatusException(
+              HttpStatus.BAD_REQUEST, "Registration with ADMIN role is forbidden!");
         }
       } catch (IllegalArgumentException e) {
         if (e.getMessage() != null && e.getMessage().contains("forbidden")) {
@@ -72,19 +73,25 @@ public class UserService {
     User user =
         userRepository
             .findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found: " + username));
     return user.getBalance();
   }
 
   @Transactional
   public BigDecimal rechargeBalance(String username, BigDecimal amount) {
     if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-      throw new IllegalArgumentException("Amount must be greater than zero");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be greater than zero");
     }
     User user =
         userRepository
             .findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found: " + username));
 
     user.setBalance(user.getBalance().add(amount));
     userRepository.save(user);
@@ -96,10 +103,14 @@ public class UserService {
     User user =
         userRepository
             .findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found: " + username));
 
     if (user.getBalance().compareTo(amount) < 0) {
-      throw new IllegalArgumentException(
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
           "Insufficient funds! You have $" + user.getBalance() + " but order costs $" + amount);
     }
 
@@ -128,26 +139,28 @@ public class UserService {
     User user =
         userRepository
             .findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found with id: " + id));
 
     if (adminUsername.equals(user.getUsername())) {
-      throw new IllegalArgumentException("Modifying the root ADMIN account is forbidden!");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Modifying the root ADMIN account is forbidden!");
     }
 
     try {
       Role newRole = Role.valueOf(roleStr.toUpperCase());
 
       if (newRole == Role.ADMIN) {
-        throw new IllegalArgumentException("Promotion to ADMIN role is forbidden!");
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "Promotion to ADMIN role is forbidden!");
       }
 
       user.setRole(newRole);
       userRepository.save(user);
     } catch (IllegalArgumentException e) {
-      if (e.getMessage() != null && e.getMessage().contains("forbidden")) {
-        throw e;
-      }
-      throw new IllegalArgumentException("Invalid role name: " + roleStr);
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role name: " + roleStr);
     }
   }
 
@@ -157,10 +170,14 @@ public class UserService {
     User user =
         userRepository
             .findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found with id: " + id));
 
     if (adminUsername.equals(user.getUsername())) {
-      throw new IllegalArgumentException("Deleting the root ADMIN account is forbidden!");
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Deleting the root ADMIN account is forbidden!");
     }
 
     try {
@@ -180,7 +197,10 @@ public class UserService {
     User user =
         userRepository
             .findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found: " + username));
     return new UserResponse(
         user.getId(), user.getUsername(), user.getEmail(), user.getRole(), user.getBalance());
   }
