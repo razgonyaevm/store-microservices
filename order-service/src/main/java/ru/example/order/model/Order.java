@@ -19,5 +19,6 @@ public class Order {
   private String orderNumber;
 
   @OneToMany(cascade = CascadeType.ALL)
+  @JoinColumn(name = "order_id")
   private List<OrderLineItems> orderLineItemsList;
 }

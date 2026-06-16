@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Создание таблицы t_orders -->
+    <changeSet id="1.0-create-t_orders" author="max">
+        <createTable tableName="t_orders">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="order_number" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- Создание таблицы t_order_line_items -->
+    <changeSet id="1.0-create-t_order_line_items" author="max">
+        <createTable tableName="t_order_line_items">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="sku_code" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price" type="numeric(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Внешний ключ на таблицу заказов -->
+            <column name="order_id" type="bigint"/>
+        </createTable>
+    </changeSet>
+
+    <!-- Добавление внешнего ключа (Foreign Key Constraint) -->
+    <changeSet id="1.0-add-foreign-key-order-items" author="max">
+        <addForeignKeyConstraint baseTableName="t_order_line_items"
+                                 baseColumnNames="order_id"
+                                 constraintName="fk_order_line_items_orders"
+                                 referencedTableName="t_orders"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

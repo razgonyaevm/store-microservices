@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Создание таблицы t_inventory -->
+    <changeSet id="1.0-create-t_inventory" author="razgonyaevm">
+        <createTable tableName="t_inventory">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="sku_code" type="varchar(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price" type="numeric(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="emoji" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- Инициализация бд стартовыми товарами -->
+    <changeSet id="1.0-insert-initial-products" author="razgonyaevm">
+        <insert tableName="t_inventory">
+            <column name="sku_code" value="iphone_15"/>
+            <column name="name" value="iPhone 15"/>
+            <column name="price" valueNumeric="1200.00"/>
+            <column name="quantity" valueNumeric="10"/>
+            <column name="emoji" value="📱"/>
+        </insert>
+        <insert tableName="t_inventory">
+            <column name="sku_code" value="pixel_8"/>
+            <column name="name" value="Google Pixel 8"/>
+            <column name="price" valueNumeric="800.00"/>
+            <column name="quantity" valueNumeric="0"/>
+            <column name="emoji" value="🤖"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -55,7 +55,7 @@
 | **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)                      |
 | **Фронтенд**                   | Vue 3 (Composition API), Vite Router (клиентская маршрутизация), Axios, HTML5/CSS3 (Grid, Flexbox, Сплит SPA на views) |
 | **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование, Role-Based Access Control (RBAC)                         |
-| **Базы данных**                | PostgreSQL 15, Redis 7 (In-Memory кэш), Схема "Database per Service"                                                   |
+| **Базы данных**                | PostgreSQL 15, Liquibase (миграции и версионирование схем БД), Redis 7 (In-Memory кэш), Схема "Database per Service"   |
 | **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                                          |
 | **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                                     |
 | **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                                           |
@@ -124,6 +124,11 @@
 * **Distributed Tracing (Распределенная трассировка):** Благодаря Micrometer и Zipkin, каждому HTTP-запросу
   присваивается уникальный `Trace ID`, который пробрасывается через заголовки Feign-клиентов и Kafka-сообщений. Вы
   можете отследить время выполнения каждого шага в сквозном таймлайне.
+* **Database Migrations & Seeding:** JPA-автогенерация схем (`ddl-auto: update`) полностью отключена на бэкенде.
+  Все изменения структуры таблиц PostgreSQL версионируются через декларативные
+  XML-миграции **Liquibase**. При этом соблюдается строгое разделение ответственности: структура таблиц создается
+  через Liquibase, а сидинг чувствительных данных (в частности, создание системного администратора со случайной
+  BCrypt-солью при старте) безопасно выполняется на стороне Java-кода, исключая утечку секретов.
 
 ---
 
