@@ -46,7 +46,8 @@ public class UserController {
 
   @PutMapping("/deduct")
   @ResponseStatus(HttpStatus.OK)
-  public void deductBalance(@RequestParam String username, @RequestParam BigDecimal amount) {
+  public void deductBalance(
+      @RequestParam("username") String username, @RequestParam("amount") BigDecimal amount) {
     userService.deductBalance(username, amount);
   }
 

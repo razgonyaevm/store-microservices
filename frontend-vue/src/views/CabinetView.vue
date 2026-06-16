@@ -157,7 +157,9 @@ const checkoutCart = async () => {
     cart.value = {items: []}
     await fetchBalance()
   } catch (error) {
-    showToast(error.response?.data || 'Checkout failed', 'error')
+    console.error('Checkout failed:', error)
+    const errorMsg = error.response?.data?.message || error.response?.data || 'Checkout failed'
+    showToast(errorMsg, 'error')
   } finally {
     cartLoading.value = false
   }
