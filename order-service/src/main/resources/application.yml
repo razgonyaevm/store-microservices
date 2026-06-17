@@ -1,6 +1,10 @@
 server:
   port: 8081
 spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true # Активация предохранителей для всех Feign-клиентов
   application:
     name: order-service
   datasource:

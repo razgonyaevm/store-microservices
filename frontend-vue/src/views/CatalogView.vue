@@ -37,7 +37,7 @@ const addToCart = async (product) => {
     showToast(`Added ${product.name} to cart (Reserved!)`, 'success')
     await fetchProducts()
   } catch (error) {
-    showToast(error.response?.data?.message || 'Product is not in stock!', 'error')
+    showToast(error.response?.data?.message || error.response?.data || 'Product is not in stock!', 'error')
   } finally {
     product.loading = false
   }

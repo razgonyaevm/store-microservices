@@ -15,6 +15,12 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
   }
 
+  @ExceptionHandler(IllegalStateException.class)
+  public ResponseEntity<String> handleIllegalStateException(IllegalStateException ex) {
+    // Возвращаем статус 503 Service Unavailable с текстом заглушки
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ex.getMessage());
+  }
+
   @ExceptionHandler(FeignException.class)
   public ResponseEntity<String> handleFeignException(FeignException ex) {
     String body = ex.contentUTF8();

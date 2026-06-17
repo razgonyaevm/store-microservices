@@ -2,6 +2,10 @@ server:
   port: 8085
 
 spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true # Активация предохранителей для всех Feign-клиентов
   application:
     name: cart-service
   data:
