@@ -1,4 +1,4 @@
-package ru.example.user;
+package ru.example.inventory;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,7 +11,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = "eureka.client.enabled=false")
 @Testcontainers
-public class UserServiceApplicationTest {
+public class InventoryApplicationTest {
 
   @Container @ServiceConnection
   static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:15-alpine");
@@ -23,6 +23,6 @@ public class UserServiceApplicationTest {
     System.setProperty("spring.datasource.password", postgresContainer.getPassword());
     System.setProperty("eureka.client.enabled", "false");
 
-    UserServiceApplication.main(new String[] {});
+    InventoryServiceApplication.main(new String[] {});
   }
 }

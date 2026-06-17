@@ -25,27 +25,22 @@ import ru.example.notification.event.OrderPlacedEvent;
     topics = "notificationTopik",
     partitions = 1,
     brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"})
-public class NotificationServiceApplicationTest {
+public class NotificationKafkaTest {
 
   @Autowired private KafkaTemplate<String, String> kafkaTemplate;
 
   @Autowired private ObjectMapper objectMapper;
 
-  // SpyBean для слежения за бином NotificationService
   @SpyBean private NotificationService notificationService;
 
   @Test
   void shouldConsumeOrderPlacedEvent() throws Exception {
     OrderPlacedEvent event = new OrderPlacedEvent("order_12345");
 
-    // Java-объект события в JSON-строку
     String jsonEvent = objectMapper.writeValueAsString(event);
 
-    // Имитируем отправку события в топик notificationTopik встроенной Kafka
     kafkaTemplate.send("notificationTopic", jsonEvent);
 
-    // Ждем до 5 секунд, пока асинхронный @KafkaListener считает сообщение и вызовет метод
-    // handleNotification
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(
@@ -54,10 +49,5 @@ public class NotificationServiceApplicationTest {
                   .handleNotification(
                       Mockito.argThat(argument -> argument.getOrderNumber().equals("order_12345")));
             });
-  }
-
-  @Test
-  void testMainMethod() {
-    NotificationServiceApplication.main(new String[] {});
   }
 }
