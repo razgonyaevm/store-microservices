@@ -50,16 +50,16 @@
 
 ## Технологический стек
 
-| Направление                    | Технологии                                                                                                             |
-|:-------------------------------|:-----------------------------------------------------------------------------------------------------------------------|
-| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)                      |
-| **Фронтенд**                   | Vue 3 (Composition API), Vite Router (клиентская маршрутизация), Axios, HTML5/CSS3 (Grid, Flexbox, Сплит SPA на views) |
-| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование, Role-Based Access Control (RBAC)                         |
-| **Базы данных**                | PostgreSQL 15, Liquibase (миграции и версионирование схем БД), Redis 7 (In-Memory кэш), Схема "Database per Service"   |
-| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                                          |
-| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                                     |
-| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                                           |
-| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry)                    |
+| Направление                    | Технологии                                                                                                            |
+|:-------------------------------|:----------------------------------------------------------------------------------------------------------------------|
+| **Бэкенд**                     | Java 21, Spring Boot 3.2.x, Spring Cloud (Gateway, OpenFeign, LoadBalancer, Eureka Server/Client)                     |
+| **Фронтенд**                   | Vue 3 (Composition API), Vue Router (клиентская маршрутизация), Axios, HTML5/CSS3 (Grid, Flexbox, Сплит SPA на views) |
+| **Безопасность**               | Spring Security 6, JWT (JSON Web Tokens), BCrypt хэширование, Role-Based Access Control (RBAC)                        |
+| **Базы данных**                | PostgreSQL 15, Liquibase (миграции и версионирование схем БД), Redis 7 (In-Memory кэш), Схема "Database per Service"  |
+| **Брокер сообщений**           | Apache Kafka, Zookeeper (Асинхронные события)                                                                         |
+| **Мониторинг (Observability)** | Micrometer Tracing, Brave, OpenZipkin (Распределенная трассировка)                                                    |
+| **Тестирование**               | JUnit 5, Spring Boot Test, Testcontainers, PostgreSQL Testcontainer, MockMvc                                          |
+| **DevOps & CI/CD**             | Docker, Docker Compose, Nginx (раздача фронтенда), GitHub Actions, GHCR (GitHub Container Registry)                   |
 
 ---
 
