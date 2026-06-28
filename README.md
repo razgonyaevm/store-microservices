@@ -3,7 +3,7 @@
 [![Java CI/CD Pipeline](https://github.com/razgonyaevm/store-microservices/actions/workflows/maven.yml/badge.svg)](https://github.com/razgonyaevm/store-microservices/actions/workflows/maven.yml)
 ![Instruction Coverage](.github/badges/jacoco.svg)
 
-Высоко нагруженное отказоустойчивое Full-Stack приложение для заказа техники, построенное на базе микросервисной
+Отказоустойчивое Full-Stack приложение для заказа техники, построенное на базе микросервисной
 архитектуры с использованием **Spring Boot 3**, **Spring Cloud**, **Apache Kafka**, **Redis**, **PostgreSQL** и
 **Vue 3**.
 
